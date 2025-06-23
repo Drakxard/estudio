@@ -4,30 +4,27 @@
   "directories": {
     "output": "electron-dist"
   },
-  "main": "electron-main.js",
   "files": [
     "dist/**/*",
-    "electron-main.js",
-    "electron-preload.js",
+    "electron-simple.js",
     "package.json",
     "server/**/*",
     "shared/**/*",
     "sube-seccion/**/*",
     "attached_assets/**/*",
-    "node_modules/**/*"
-  ],
-  "extraResources": [
     {
-      "from": "sube-seccion",
-      "to": "sube-seccion",
-      "filter": ["**/*"]
-    },
-    {
-      "from": "attached_assets", 
-      "to": "attached_assets",
-      "filter": ["**/*"]
+      "from": "node_modules",
+      "to": "node_modules",
+      "filter": [
+        "**/*",
+        "!**/test/**",
+        "!**/*.md",
+        "!**/example/**",
+        "!**/examples/**"
+      ]
     }
   ],
+
   "win": {
     "target": [
       {
@@ -39,7 +36,7 @@
         "arch": ["x64"]
       }
     ],
-    "icon": "icon.ico"
+"icon": "icon.ico"
   },
   "linux": {
     "target": [

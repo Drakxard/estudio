@@ -13,7 +13,7 @@
    # OR run manually:
    npm install
    npm run build
-   npx electron-builder --win --config package-electron-simple.json
+   npx electron-builder --win --config electron-builder.json
    ```
 5. **Find your .exe** in `electron-dist/` folder:
    - `Mathematics Study Platform Setup.exe` - Full installer
@@ -38,7 +38,7 @@ test-electron.cmd
 # Option 2: Manual commands
 npm install
 npm run build
-npx electron electron-simple.js
+npx electron electron-main.js
 ```
 
 ## Building for Production
@@ -57,7 +57,7 @@ build-exe.cmd
 
 # Manual way:
 npm run build
-npx electron-builder --win --config package-electron-simple.json
+npx electron-builder --win --config electron-builder.json
 ```
 
 #### Outputs:

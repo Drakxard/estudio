@@ -10,8 +10,8 @@ echo Step 2: Building application...
 call npm run build
 
 echo.
-echo Step 3: Testing simple Electron app...
-call npx electron electron-simple.js
+echo Step 3: Testing Electron app...
+call npx electron electron-main.js
 
 echo.
 echo Test complete!

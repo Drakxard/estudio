@@ -140,14 +140,14 @@ Convert to standalone .exe application:
 
 ```bash
 # Development mode with hot reload
-node electron-dev.js
+test-electron.cmd
 
 # Build production .exe
 npm run build
-npx electron-builder --win
+npx electron-builder --win --config electron-builder.json
 
 # Or use the automated script
-npm run electron:build
+build-exe.cmd
 ```
 
 **Build Outputs:**

@@ -11,7 +11,7 @@ call npm run build
 
 echo.
 echo Step 3: Creating Windows executable...
-call npx electron-builder --win --config package-electron-simple.json
+call npx electron-builder --win --config electron-builder.json
 
 echo.
 echo Build complete! Check the 'electron-dist' folder for your .exe files.
