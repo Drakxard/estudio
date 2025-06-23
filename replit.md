@@ -1,0 +1,102 @@
+# Mathematics Study Platform
+
+## Overview
+
+This is a comprehensive mathematics study platform built as a full-stack web application. It provides an ultra-minimalist interface for studying mathematics with dynamic exercises, a Pomodoro timer, automatic response saving, and AI-powered assistance through the GROQ API. The platform supports LaTeX/KaTeX rendering for mathematical notation and features a dark theme optimized for focused study sessions.
+
+## System Architecture
+
+### Frontend Architecture
+- **Framework**: React 18 with TypeScript for type safety
+- **Routing**: Wouter for lightweight client-side routing
+- **State Management**: Zustand with persistence middleware for global state
+- **UI Framework**: Tailwind CSS with shadcn/ui components for consistent design
+- **Build Tool**: Vite for fast development and optimized production builds
+- **Math Rendering**: KaTeX and MathJax for LaTeX mathematical notation
+
+### Backend Architecture
+- **Runtime**: Node.js with Express.js server
+- **Database**: PostgreSQL with Drizzle ORM for type-safe database operations
+- **Database Provider**: Neon Database (serverless PostgreSQL)
+- **API Design**: RESTful API with Express routes
+- **Development Mode**: Vite middleware integration for hot module replacement
+
+## Key Components
+
+### Data Management
+- **Exercise System**: Structured exercises organized by sections and topics
+- **Response Tracking**: Auto-saving user responses with timestamps
+- **Settings Management**: Configurable Pomodoro timer, time limits, and API keys
+- **Session Tracking**: Study session monitoring with statistics
+
+### Exercise Parser
+- **File Processing**: Automated loading of exercises from JavaScript files
+- **Section Detection**: Intelligent parsing of exercise sections and ordering
+- **Data Normalization**: Consistent exercise structure across different sources
+
+### AI Integration
+- **GROQ API**: Integration with Llama 3.1 8B model for mathematics assistance
+- **Educational Context**: Specialized system prompts for adaptive mathematics education
+- **LaTeX Support**: AI responses formatted with proper mathematical notation
+
+### User Interface
+- **Minimalist Design**: Ultra-clean interface optimized for focus
+- **Dark Theme**: Eye-strain reducing dark color scheme
+- **Responsive Layout**: Mobile-friendly design with adaptive components
+- **Mathematical Rendering**: Real-time LaTeX/KaTeX processing
+
+## Data Flow
+
+1. **Exercise Loading**: JavaScript exercise files are parsed and stored in PostgreSQL
+2. **User Interaction**: Students navigate through exercises with keyboard shortcuts
+3. **Response Handling**: User inputs are auto-saved with debouncing to prevent data loss
+4. **AI Assistance**: GROQ API provides contextual help when requested
+5. **Timer Management**: Pomodoro timer tracks study sessions and breaks
+6. **Settings Persistence**: User preferences are saved and synchronized
+
+## External Dependencies
+
+### Core Dependencies
+- **@neondatabase/serverless**: Serverless PostgreSQL connection driver
+- **drizzle-orm**: Type-safe ORM with PostgreSQL support
+- **@tanstack/react-query**: Server state management and caching
+- **wouter**: Lightweight React router
+- **zustand**: Minimal state management with persistence
+
+### UI Dependencies
+- **@radix-ui/***: Comprehensive unstyled UI components
+- **tailwindcss**: Utility-first CSS framework
+- **lucide-react**: Icon library for UI elements
+- **class-variance-authority**: Type-safe CSS class variants
+
+### Development Dependencies
+- **typescript**: Static type checking
+- **vite**: Fast build tool and development server
+- **tsx**: TypeScript execution for Node.js
+- **esbuild**: Fast JavaScript bundler for production
+
+## Deployment Strategy
+
+### Development Environment
+- **Local Database**: PostgreSQL 16 module in Replit
+- **Hot Reload**: Vite development server with Express middleware
+- **Port Configuration**: Development server on port 5000
+
+### Production Deployment
+- **Build Process**: Vite builds the frontend, esbuild bundles the backend
+- **Database**: Neon serverless PostgreSQL for production
+- **Environment Variables**: DATABASE_URL and GROQ_API_KEY configuration
+- **Static Serving**: Express serves built frontend assets
+
+### Replit Configuration
+- **Modules**: nodejs-20, web, postgresql-16
+- **Auto-deployment**: Configured for autoscale deployment target
+- **Workflows**: Automated development and production workflows
+
+## Changelog
+
+- June 23, 2025. Initial setup
+
+## User Preferences
+
+Preferred communication style: Simple, everyday language.
