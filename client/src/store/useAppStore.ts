@@ -21,6 +21,7 @@ interface AppState {
   // Timer
   timer: TimerState;
   timerInterval: number | null;
+  studyStartTime: number | null;
   
   // Settings
   settings: Settings | null;
@@ -32,6 +33,8 @@ interface AppState {
   showFeedbackDialog: boolean;
   showSectionTransition: boolean;
   sectionCountdown: number;
+  showRestBreak: boolean;
+  restBreakMinutes: number;
   
   // Actions
   setExercises: (exercises: Exercise[]) => void;
@@ -61,6 +64,9 @@ interface AppState {
   setShowFeedbackDialog: (show: boolean) => void;
   startSectionTransition: () => void;
   cancelSectionTransition: () => void;
+  
+  // Rest break
+  setShowRestBreak: (show: boolean) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -81,6 +87,7 @@ export const useAppStore = create<AppState>()(
         isPomodoro: true,
       },
       timerInterval: null,
+      studyStartTime: null,
       
       settings: null,
       
@@ -90,6 +97,8 @@ export const useAppStore = create<AppState>()(
       showFeedbackDialog: false,
       showSectionTransition: false,
       sectionCountdown: 5,
+      showRestBreak: false,
+      restBreakMinutes: 5,
       
       // Actions
       setExercises: (exercises) => {
@@ -201,7 +210,8 @@ export const useAppStore = create<AppState>()(
             seconds: 0,
             isRunning: true,
             isPomodoro: true,
-          }
+          },
+          studyStartTime: Date.now()
         });
         
         const intervalId = window.setInterval(() => {
@@ -245,10 +255,21 @@ export const useAppStore = create<AppState>()(
           
           if (state.timer.seconds === 0) {
             if (state.timer.minutes === 0) {
-              // Timer finished
+              // Timer finished - calculate rest break time
+              const studyTime = state.studyStartTime ? (Date.now() - state.studyStartTime) / 60000 : 25;
+              const restMinutes = Math.ceil(studyTime / 5); // minutos estudiados / 5
+              
+              // Clear timer interval
+              if (state.timerInterval) {
+                clearInterval(state.timerInterval);
+              }
+              
               return {
                 ...state,
-                timer: { ...state.timer, isRunning: false }
+                timer: { ...state.timer, isRunning: false },
+                timerInterval: null,
+                showRestBreak: true,
+                restBreakMinutes: restMinutes
               };
             }
             return {
@@ -313,39 +334,36 @@ export const useAppStore = create<AppState>()(
         });
         
         const countdownInterval = setInterval(() => {
-          const state = get();
-          if (state.sectionCountdown <= 1) {
+          const currentState = get();
+          if (currentState.sectionCountdown <= 1) {
             // Countdown finished - move to next section
             clearInterval(countdownInterval);
-            const nextSectionId = state.currentSectionId + 1;
-            const maxSection = state.exercises.length > 0 ? Math.max(...state.exercises.map(ex => ex.sectionId)) : 1;
+            const nextSectionId = currentState.currentSectionId + 1;
+            const maxSection = currentState.exercises.length > 0 ? Math.max(...currentState.exercises.map(ex => ex.sectionId)) : 1;
             
             if (nextSectionId <= maxSection) {
-              set({
-                currentSectionId: nextSectionId,
-                currentExerciseIndex: 0,
-                showSectionTransition: false,
-                sectionCountdown: 5,
-              });
-              
-              // Set first exercise of new section
-              const newSectionExercises = state.exercises.filter(ex => ex.sectionId === nextSectionId);
+              // Move to next section
+              const newSectionExercises = currentState.exercises.filter(ex => ex.sectionId === nextSectionId);
               if (newSectionExercises.length > 0) {
-                const savedResponse = state.loadResponse(newSectionExercises[0].id);
+                const savedResponse = currentState.loadResponse(newSectionExercises[0].id);
                 set({
+                  currentSectionId: nextSectionId,
+                  currentExerciseIndex: 0,
                   currentExercise: newSectionExercises[0],
                   currentResponse: savedResponse,
+                  showSectionTransition: false,
+                  sectionCountdown: 5,
                 });
               }
             } else {
-              // No more sections - stay on current
+              // No more sections - hide transition
               set({
                 showSectionTransition: false,
                 sectionCountdown: 5,
               });
             }
           } else {
-            set({ sectionCountdown: state.sectionCountdown - 1 });
+            set({ sectionCountdown: currentState.sectionCountdown - 1 });
           }
         }, 1000);
       },
@@ -356,6 +374,10 @@ export const useAppStore = create<AppState>()(
           sectionCountdown: 5,
           showFeedbackDialog: true 
         });
+      },
+      
+      setShowRestBreak: (show) => {
+        set({ showRestBreak: show });
       },
     }),
     {

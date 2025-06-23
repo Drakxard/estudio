@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, Settings, Timer } from 'lucide-react';
 import { SettingsModal } from '@/components/SettingsModal';
 import { FeedbackDialog } from '@/components/FeedbackDialog';
 import { SectionTransitionDialog } from '@/components/SectionTransitionDialog';
+import { RestBreakDialog } from '@/components/RestBreakDialog';
 import { apiRequest } from '@/lib/queryClient';
 import type { Exercise, Settings as SettingsType } from '@shared/schema';
 
@@ -281,6 +282,9 @@ export default function StudyInterface() {
       
       {/* Section Transition Dialog */}
       <SectionTransitionDialog />
+      
+      {/* Rest Break Dialog */}
+      <RestBreakDialog />
     </div>
   );
 }
