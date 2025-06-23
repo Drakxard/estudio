@@ -1,14 +1,47 @@
 {
   "name": "mathematics-study-platform",
   "version": "1.0.0",
-  "description": "Comprehensive mathematics study platform with AI assistance",
-  "main": "electron/main.js",
-  "homepage": "./",
+  "description": "Mathematics Study Platform - Desktop App",
+  "main": "electron-main.js",
   "scripts": {
-    "electron": "NODE_ENV=development electron electron/main.js",
-    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5000 && electron electron/main.js\"",
-    "electron:build": "npm run build && electron-builder",
-    "electron:dist": "npm run build && electron-builder --publish=never",
-    "electron:pack": "npm run build && electron-builder --dir"
+    "electron": "electron .",
+    "electron:build": "electron-builder",
+    "electron:dist": "electron-builder --dir"
+  },
+  "build": {
+    "appId": "com.mathstudy.app",
+    "productName": "Mathematics Study Platform",
+    "directories": {
+      "output": "electron-dist"
+    },
+    "files": [
+      "dist/**/*",
+      "electron-main.js", 
+      "electron-preload.js",
+      "package.json",
+      "server/**/*",
+      "shared/**/*",
+      "sube-seccion/**/*",
+      "attached_assets/**/*",
+      "node_modules/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable", 
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
   }
 }

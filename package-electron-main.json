@@ -1,0 +1,13 @@
+{
+  "name": "mathematics-study-platform",
+  "version": "1.0.0",
+  "description": "Mathematics Study Platform",
+  "main": "electron-main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-packager . \"Mathematics Study Platform\" --platform=win32 --arch=x64 --out=electron-dist --overwrite"
+  },
+  "devDependencies": {
+    "electron": "^36.5.0"
+  }
+}

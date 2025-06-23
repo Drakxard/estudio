@@ -4,7 +4,6 @@
   "directories": {
     "output": "electron-dist"
   },
-  "main": "electron-main.js",
   "files": [
     "dist/**/*",
     "electron-main.js",
@@ -14,7 +13,9 @@
     "shared/**/*",
     "sube-seccion/**/*",
     "attached_assets/**/*",
-    "node_modules/**/*"
+    "node_modules/**/*",
+    "!node_modules/*/{test,__tests__,tests,example,examples}/**/*",
+    "!**/*.{md,txt}"
   ],
   "extraResources": [
     {

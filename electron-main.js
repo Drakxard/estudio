@@ -32,7 +32,7 @@ function createWindow() {
     console.log('Loading application...');
     mainWindow.loadURL('http://localhost:5000');
     mainWindow.show();
-  }, 4000);
+  }, 6000);
 
   // Handle external links
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -60,52 +60,29 @@ function startServer() {
     const isWin = process.platform === 'win32';
     const npmCmd = isWin ? 'npm.cmd' : 'npm';
     
-    // Use the built server if it exists, otherwise build and start
-    if (app.isPackaged) {
-      // In packaged app, run the built server
-      const serverPath = path.join(process.resourcesPath, 'dist', 'server', 'index.js');
-      console.log('Starting packaged server from:', serverPath);
+    // Start the built server
+    const serverPath = app.isPackaged 
+      ? path.join(process.resourcesPath, 'dist', 'index.js')
+      : path.join(__dirname, 'dist', 'index.js');
       
-      serverProcess = spawn('node', [serverPath], {
-        env: { 
-          ...process.env, 
-          NODE_ENV: 'production',
-          PORT: '5000'
-        },
-        stdio: 'pipe'
-      });
-    } else {
-      // In development, build and start
-      console.log('Building and starting development server...');
-      
-      // First build the app
-      exec('npm run build', (error, stdout, stderr) => {
-        if (error) {
-          console.error('Build error:', error);
-          return;
-        }
-        console.log('Build completed, starting server...');
-        
-        // Then start the server
-        serverProcess = spawn(npmCmd, ['start'], {
-          shell: isWin,
-          env: { 
-            ...process.env, 
-            NODE_ENV: 'production',
-            PORT: '5000'
-          },
-          stdio: 'pipe'
-        });
-        
-        serverProcess.stdout.on('data', (data) => {
-          console.log('Server:', data.toString());
-        });
-        
-        serverProcess.stderr.on('data', (data) => {
-          console.error('Server error:', data.toString());
-        });
-      });
-    }
+    console.log('Starting server from:', serverPath);
+    
+    serverProcess = spawn('node', [serverPath], {
+      env: { 
+        ...process.env, 
+        NODE_ENV: 'production',
+        PORT: '5000'
+      },
+      stdio: 'pipe'
+    });
+    
+    serverProcess.stdout.on('data', (data) => {
+      console.log('Server:', data.toString());
+    });
+    
+    serverProcess.stderr.on('data', (data) => {
+      console.error('Server error:', data.toString());
+    });
     
     if (serverProcess) {
       serverProcess.on('error', (err) => {
