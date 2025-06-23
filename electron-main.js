@@ -60,21 +60,46 @@ function startServer() {
     const isWin = process.platform === 'win32';
     const npmCmd = isWin ? 'npm.cmd' : 'npm';
     
-    // Start the built server
-    const serverPath = app.isPackaged 
-      ? path.join(process.resourcesPath, 'dist', 'index.js')
-      : path.join(__dirname, 'dist', 'index.js');
+    // Determine server path based on packaging state
+    let serverPath;
+    if (app.isPackaged) {
+      // In packaged app, look for server in resources
+      serverPath = path.join(process.resourcesPath, 'app', 'dist', 'index.js');
+      if (!require('fs').existsSync(serverPath)) {
+        serverPath = path.join(__dirname, 'dist', 'index.js');
+      }
+    } else {
+      // In development, use relative path
+      serverPath = path.join(__dirname, 'dist', 'index.js');
+    }
       
     console.log('Starting server from:', serverPath);
+    console.log('Server file exists:', require('fs').existsSync(serverPath));
     
-    serverProcess = spawn('node', [serverPath], {
-      env: { 
-        ...process.env, 
-        NODE_ENV: 'production',
-        PORT: '5000'
-      },
-      stdio: 'pipe'
-    });
+    if (require('fs').existsSync(serverPath)) {
+      serverProcess = spawn('node', [serverPath], {
+        env: { 
+          ...process.env, 
+          NODE_ENV: 'production',
+          PORT: '5000'
+        },
+        stdio: 'pipe'
+      });
+    } else {
+      console.error('Server file not found at:', serverPath);
+      // Fallback: try to start with npm if available
+      const npmCmd = isWin ? 'npm.cmd' : 'npm';
+      serverProcess = spawn(npmCmd, ['start'], {
+        cwd: __dirname,
+        shell: isWin,
+        env: { 
+          ...process.env, 
+          NODE_ENV: 'production',
+          PORT: '5000'
+        },
+        stdio: 'pipe'
+      });
+    }
     
     serverProcess.stdout.on('data', (data) => {
       console.log('Server:', data.toString());
