@@ -106,6 +106,9 @@ This is a comprehensive mathematics study platform built as a full-stack web app
   - Added response persistence across navigation with local storage
   - Created logging system (log.txt) for debugging auto-save issues
   - Enhanced navigation to preserve user responses when using Ctrl+arrows
+  - Implemented dynamic section loading system with `/sube-seccion/` folder
+  - Added section transition countdown (5-4-3-2-1) with feedback option
+  - Created rest break notifications when Pomodoro timer completes
 
 ## Development Setup
 
@@ -126,17 +129,30 @@ cross-env NODE_ENV=development tsx server/index.ts
 ```
 
 ### Exercise Data Structure
-The system dynamically loads exercises from JavaScript files with this format:
+
+#### Static Files (attached_assets/)
+The system loads exercises from existing JavaScript files in the attached_assets folder.
+
+#### Dynamic Section Loading (/sube-seccion/)
+New feature: Upload sections dynamically to the `/sube-seccion/` folder. Each JavaScript file represents a new section:
+
 ```javascript
 export const ejercicios = [
   {
-    "seccion": "Seccion 1",
-    "tema": "Topic name",
+    "seccion": "Seccion 4",
+    "tema": "Topic name", 
     "enunciado": "Exercise statement",
-    "id": "Exercise content"
+    "ejercicio": "Exercise content (optional)",
+    "id": "Unique identifier"
   }
 ]
 ```
+
+**Usage:**
+1. Create a `.js` file in `/sube-seccion/` folder
+2. Use the format above with `export const ejercicios = [...]`
+3. The system automatically detects and loads new sections on restart
+4. Section numbers are auto-assigned based on file loading order
 
 ## User Preferences
 
