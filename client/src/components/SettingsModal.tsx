@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '@/store/useAppStore';
 import { apiRequest } from '@/lib/queryClient';
@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Trash2, Upload, FileText, Plus } from 'lucide-react';
 import type { Settings } from '@shared/schema';
 
 export function SettingsModal() {
@@ -32,6 +33,12 @@ export function SettingsModal() {
     feedbackPrompt: 'Eres un profesor de matemáticas experto. Analiza la respuesta del estudiante y proporciona retroalimentación constructiva con explicaciones claras y ejemplos cuando sea necesario.',
     currentSection: 1,
   });
+
+  // Section files management state
+  const [showSectionManager, setShowSectionManager] = useState(false);
+  const [newFileName, setNewFileName] = useState('');
+  const [newFileContent, setNewFileContent] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load settings from server
   const { data: serverSettings } = useQuery<Settings>({
@@ -59,6 +66,38 @@ export function SettingsModal() {
         modelId: formData.groqModelId,
       });
       return response.json();
+    },
+  });
+
+  // Section files queries and mutations
+  const { data: sectionFiles = [] } = useQuery<string[]>({
+    queryKey: ['/api/sections/files'],
+    enabled: showSectionManager,
+  });
+
+  const uploadFileMutation = useMutation({
+    mutationFn: async ({ filename, content }: { filename: string; content: string }) => {
+      const response = await apiRequest('POST', '/api/sections/upload', { filename, content });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/sections/files'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/exercises'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/bkt/domains'] });
+      setNewFileName('');
+      setNewFileContent('');
+    },
+  });
+
+  const deleteFileMutation = useMutation({
+    mutationFn: async (filename: string) => {
+      const response = await apiRequest('DELETE', `/api/sections/files/${filename}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/sections/files'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/exercises'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/bkt/domains'] });
     },
   });
 
@@ -101,9 +140,44 @@ export function SettingsModal() {
     testApiMutation.mutate();
   };
 
+  // Handle file upload
+  const handleFileUpload = () => {
+    if (!newFileName.trim() || !newFileContent.trim()) {
+      return;
+    }
+    
+    let filename = newFileName.trim();
+    if (!filename.endsWith('.js')) {
+      filename += '.js';
+    }
+    
+    uploadFileMutation.mutate({ filename, content: newFileContent });
+  };
+
+  // Handle file deletion
+  const handleFileDelete = (filename: string) => {
+    if (confirm(`¿Estás seguro de que quieres eliminar el archivo ${filename}?`)) {
+      deleteFileMutation.mutate(filename);
+    }
+  };
+
+  // Handle file input
+  const handleFileInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && file.name.endsWith('.js')) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const content = e.target?.result as string;
+        setNewFileName(file.name);
+        setNewFileContent(content);
+      };
+      reader.readAsText(file);
+    }
+  };
+
   // Calculate section options
   const sectionOptions = exercises.length > 0
-    ? [...new Set(exercises.map(ex => ex.sectionId))].sort()
+    ? Array.from(new Set(exercises.map(ex => ex.sectionId))).sort()
     : [1, 2, 3, 4, 5, 6, 7, 8];
 
   const getSectionName = (sectionId: number): string => {
@@ -122,7 +196,7 @@ export function SettingsModal() {
 
   return (
     <Dialog open={isSettingsOpen} onOpenChange={toggleSettings}>
-      <DialogContent className="bg-gray-925 border-gray-800 max-w-md">
+      <DialogContent className="bg-gray-925 border-gray-800 max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-lg font-medium text-gray-200">
             Configuración
@@ -130,11 +204,21 @@ export function SettingsModal() {
         </DialogHeader>
         
         <div className="space-y-4">
-          {/* Section Selector */}
+          {/* Section Selector with File Manager Button */}
           <div>
-            <Label className="block text-sm font-medium mb-2 text-gray-300">
-              Sección actual
-            </Label>
+            <div className="flex items-center justify-between mb-2">
+              <Label className="text-sm font-medium text-gray-300">
+                Sección actual
+              </Label>
+              <Button
+                onClick={() => setShowSectionManager(!showSectionManager)}
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0 text-gray-400 hover:text-gray-200"
+              >
+                <FileText className="h-4 w-4" />
+              </Button>
+            </div>
             <Select
               value={formData.currentSection.toString()}
               onValueChange={(value) => setFormData(prev => ({ ...prev, currentSection: parseInt(value) }))}
@@ -155,6 +239,123 @@ export function SettingsModal() {
               </SelectContent>
             </Select>
           </div>
+
+          {/* Section File Manager */}
+          {showSectionManager && (
+            <div className="border border-gray-700 rounded-lg p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium text-gray-200">Gestión de Secciones</h3>
+                <Button
+                  onClick={() => setShowSectionManager(false)}
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 text-gray-400 hover:text-gray-200"
+                >
+                  ×
+                </Button>
+              </div>
+
+              {/* Upload Section */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={() => fileInputRef.current?.click()}
+                    size="sm"
+                    variant="outline"
+                    className="bg-gray-800 border-gray-600 text-gray-200 hover:bg-gray-700"
+                  >
+                    <Upload className="h-4 w-4 mr-1" />
+                    Seleccionar archivo
+                  </Button>
+                  <span className="text-xs text-gray-500">Solo archivos .js</span>
+                </div>
+                
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".js"
+                  onChange={handleFileInputChange}
+                  className="hidden"
+                />
+
+                {newFileName && (
+                  <div className="space-y-2">
+                    <Input
+                      value={newFileName}
+                      onChange={(e) => setNewFileName(e.target.value)}
+                      placeholder="Nombre del archivo"
+                      className="bg-gray-800 border-gray-700 text-gray-200"
+                    />
+                    <Textarea
+                      value={newFileContent}
+                      onChange={(e) => setNewFileContent(e.target.value)}
+                      placeholder="Contenido del archivo JavaScript..."
+                      className="bg-gray-800 border-gray-700 text-gray-200 h-32 font-mono text-sm"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={handleFileUpload}
+                        disabled={uploadFileMutation.isPending}
+                        size="sm"
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        {uploadFileMutation.isPending ? 'Subiendo...' : 'Subir'}
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          setNewFileName('');
+                          setNewFileContent('');
+                        }}
+                        size="sm"
+                        variant="outline"
+                        className="bg-gray-800 border-gray-600 text-gray-200"
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* File List */}
+              <div className="space-y-2">
+                <h4 className="text-xs font-medium text-gray-400 uppercase tracking-wide">
+                  Archivos subidos ({sectionFiles.length})
+                </h4>
+                {sectionFiles.length === 0 ? (
+                  <p className="text-xs text-gray-500 italic">No hay archivos subidos</p>
+                ) : (
+                  <div className="space-y-1 max-h-32 overflow-y-auto">
+                    {sectionFiles.map((filename) => (
+                      <div
+                        key={filename}
+                        className="flex items-center justify-between bg-gray-800 rounded px-2 py-1"
+                      >
+                        <span className="text-xs text-gray-200 font-mono">{filename}</span>
+                        <Button
+                          onClick={() => handleFileDelete(filename)}
+                          disabled={deleteFileMutation.isPending}
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 w-6 p-0 text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {(uploadFileMutation.isSuccess || deleteFileMutation.isSuccess) && (
+                <p className="text-xs text-green-400">✓ Operación completada. Las secciones se han actualizado.</p>
+              )}
+              {(uploadFileMutation.isError || deleteFileMutation.isError) && (
+                <p className="text-xs text-red-400">✗ Error al procesar el archivo.</p>
+              )}
+            </div>
+          )}
           
           {/* Pomodoro Settings */}
           <div>

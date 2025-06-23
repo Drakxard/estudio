@@ -257,7 +257,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Use custom prompt if provided, otherwise use default
-      let prompt;
+      let prompt: string;
       if (customPrompt && customPrompt.trim()) {
         prompt = `${customPrompt}\n\nEjercicios y respuestas:\n`;
       } else {
@@ -288,6 +288,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("AI feedback error:", error);
       res.status(500).json({ error: "Failed to get AI feedback" });
+    }
+  });
+
+  // Get list of uploaded section files
+  app.get("/api/sections/files", async (req, res) => {
+    try {
+      const fs = await import('fs/promises');
+      const path = await import('path');
+      
+      const subeSeccionPath = path.join(process.cwd(), 'sube-seccion');
+      
+      try {
+        await fs.access(subeSeccionPath);
+      } catch {
+        return res.json([]);
+      }
+      
+      const files = await fs.readdir(subeSeccionPath);
+      const jsFiles = files.filter(file => file.endsWith('.js'));
+      
+      res.json(jsFiles);
+    } catch (error) {
+      console.error('Error reading section files:', error);
+      res.status(500).json({ error: 'Failed to read section files' });
+    }
+  });
+
+  // Upload new section file
+  app.post("/api/sections/upload", async (req, res) => {
+    try {
+      const fs = await import('fs/promises');
+      const path = await import('path');
+      
+      const { filename, content } = req.body;
+      
+      if (!filename || !content) {
+        return res.status(400).json({ error: 'Filename and content are required' });
+      }
+      
+      if (!filename.endsWith('.js')) {
+        return res.status(400).json({ error: 'Only .js files are allowed' });
+      }
+      
+      const subeSeccionPath = path.join(process.cwd(), 'sube-seccion');
+      
+      // Create directory if it doesn't exist
+      try {
+        await fs.access(subeSeccionPath);
+      } catch {
+        await fs.mkdir(subeSeccionPath, { recursive: true });
+      }
+      
+      const filePath = path.join(subeSeccionPath, filename);
+      await fs.writeFile(filePath, content, 'utf8');
+      
+      // Reload exercises
+      await loadExercisesFromFiles();
+      
+      res.json({ success: true, message: 'File uploaded successfully' });
+    } catch (error) {
+      console.error('Error uploading section file:', error);
+      res.status(500).json({ error: 'Failed to upload section file' });
+    }
+  });
+
+  // Delete section file
+  app.delete("/api/sections/files/:filename", async (req, res) => {
+    try {
+      const fs = await import('fs/promises');
+      const path = await import('path');
+      
+      const filename = req.params.filename;
+      
+      if (!filename.endsWith('.js')) {
+        return res.status(400).json({ error: 'Only .js files can be deleted' });
+      }
+      
+      const subeSeccionPath = path.join(process.cwd(), 'sube-seccion');
+      const filePath = path.join(subeSeccionPath, filename);
+      
+      try {
+        await fs.access(filePath);
+        await fs.unlink(filePath);
+        
+        // Reload exercises
+        await loadExercisesFromFiles();
+        
+        res.json({ success: true, message: 'File deleted successfully' });
+      } catch (error) {
+        res.status(404).json({ error: 'File not found' });
+      }
+    } catch (error) {
+      console.error('Error deleting section file:', error);
+      res.status(500).json({ error: 'Failed to delete section file' });
     }
   });
 

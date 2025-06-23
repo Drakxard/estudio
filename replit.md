@@ -119,6 +119,10 @@ This is a comprehensive mathematics study platform built as a full-stack web app
   - **ADDED:** Mathematical formula rendering with LaTeX support ($formula$ and $$formula$$)
   - **INTEGRATED:** Electron desktop app support for standalone .exe generation
   - **ADDED:** Complete desktop app packaging with Windows installer and portable versions
+  - **MIGRATED:** Successfully migrated from Replit Agent to Replit environment with full compatibility
+  - **ADDED:** Section file management system with upload/delete functionality for .js files in /sube-seccion/
+  - **ENHANCED:** Settings modal with file manager icon for managing exercise sections dynamically
+  - **IMPLEMENTED:** Real-time exercise reloading when sections are added or removed (no memory persistence)
 
 ## Development Setup
 
