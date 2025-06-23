@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { loadExercisesFromFiles } from "./services/exerciseParser";
 import { callGroqAPI } from "./services/groqApi";
 import { insertResponseSchema, insertSettingsSchema } from "@shared/schema";
+import { logger } from "./logger";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize exercises on startup
@@ -52,9 +53,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/responses", async (req, res) => {
     try {
       const validatedData = insertResponseSchema.parse(req.body);
+      await logger.info("Saving response", { 
+        exerciseId: validatedData.exerciseId, 
+        responseLength: validatedData.content?.length || 0 
+      });
+      
       const response = await storage.createOrUpdateResponse(validatedData);
+      
+      await logger.info("Response saved successfully", { 
+        exerciseId: validatedData.exerciseId, 
+        id: response.id 
+      });
+      
       res.json(response);
     } catch (error) {
+      await logger.error("Failed to save response", { 
+        body: req.body, 
+        error: error instanceof Error ? error.message : String(error)
+      });
       res.status(400).json({ error: "Invalid response data" });
     }
   });
@@ -113,6 +129,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("AI response error:", error);
       res.status(500).json({ error: "Failed to get AI response" });
+    }
+  });
+
+  // Get AI feedback for section completion
+  app.post("/api/ai/feedback", async (req, res) => {
+    try {
+      const { exercises, responses, apiKey } = req.body;
+      
+      if (!exercises || !Array.isArray(exercises)) {
+        return res.status(400).json({ error: "Exercises array is required" });
+      }
+      
+      if (!apiKey) {
+        return res.status(400).json({ error: "API key is required" });
+      }
+
+      // Create feedback prompt
+      let prompt = "He completado una sección de ejercicios de matemáticas. Por favor, proporciona retroalimentación sobre mi progreso:\n\n";
+      
+      exercises.forEach((exercise, index) => {
+        const response = responses && responses[index] ? responses[index] : "Sin respuesta";
+        prompt += `Ejercicio ${index + 1}: ${exercise.tema}\n`;
+        prompt += `Enunciado: ${exercise.enunciado}\n`;
+        if (exercise.ejercicio) {
+          prompt += `Ejercicio: ${exercise.ejercicio}\n`;
+        }
+        prompt += `Mi respuesta: ${response}\n\n`;
+      });
+
+      prompt += "Por favor, proporciona:\n";
+      prompt += "1. Retroalimentación general sobre mi comprensión\n";
+      prompt += "2. Áreas que debo mejorar\n";
+      prompt += "3. Sugerencias para seguir estudiando\n";
+
+      const feedback = await callGroqAPI(prompt, apiKey);
+      
+      res.json({ feedback });
+    } catch (error) {
+      console.error("AI feedback error:", error);
+      res.status(500).json({ error: "Failed to get AI feedback" });
     }
   });
 

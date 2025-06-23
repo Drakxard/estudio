@@ -1,9 +1,11 @@
-import { useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useCallback } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { useAppStore } from '@/store/useAppStore';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Settings, Timer } from 'lucide-react';
 import { SettingsModal } from '@/components/SettingsModal';
+import { FeedbackDialog } from '@/components/FeedbackDialog';
+import { apiRequest } from '@/lib/queryClient';
 import type { Exercise, Settings as SettingsType } from '@shared/schema';
 
 export default function StudyInterface() {
@@ -17,11 +19,15 @@ export default function StudyInterface() {
     currentExerciseIndex,
     currentResponse,
     setCurrentResponse,
+    saveResponse,
     nextExercise,
     previousExercise,
     exercises,
     timer,
     isSettingsOpen,
+    setAutoSaveStatus,
+    autoSaveStatus,
+    settings: appSettings,
   } = useAppStore();
 
   // Load exercises
@@ -32,6 +38,36 @@ export default function StudyInterface() {
   // Load settings
   const { data: settings } = useQuery<SettingsType>({
     queryKey: ['/api/settings'],
+  });
+
+  // Auto-save mutation
+  const autoSaveMutation = useMutation({
+    mutationFn: async ({ exerciseId, content }: { exerciseId: number; content: string }) => {
+      setAutoSaveStatus('saving');
+      const response = await fetch('/api/responses', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          exerciseId,
+          content,
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      return await response.json();
+    },
+    onSuccess: () => {
+      setAutoSaveStatus('saved');
+    },
+    onError: (error) => {
+      console.error('Auto-save failed:', error);
+      setAutoSaveStatus('error');
+    },
   });
 
   // Initialize data
@@ -49,6 +85,29 @@ export default function StudyInterface() {
       }
     }
   }, [settings, setSettings, currentSectionId, setCurrentSection]);
+
+  // Debounced auto-save
+  const debouncedAutoSave = useCallback(
+    (exerciseId: number, content: string) => {
+      const timeoutId = setTimeout(() => {
+        if (content.trim()) {
+          autoSaveMutation.mutate({ exerciseId, content });
+          saveResponse(exerciseId, content);
+        }
+      }, 1000); // Save after 1 second of inactivity
+
+      return () => clearTimeout(timeoutId);
+    },
+    [autoSaveMutation, saveResponse]
+  );
+
+  // Auto-save when response changes
+  useEffect(() => {
+    if (currentExercise && currentResponse) {
+      const cleanup = debouncedAutoSave(currentExercise.id, currentResponse);
+      return cleanup;
+    }
+  }, [currentResponse, currentExercise, debouncedAutoSave]);
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -176,8 +235,14 @@ export default function StudyInterface() {
                     </span>
                   </div>
                   
-                  <div className="text-gray-600">
-                    Guardado automáticamente
+                  <div className={`text-sm ${
+                    autoSaveStatus === 'saving' ? 'text-yellow-500' : 
+                    autoSaveStatus === 'error' ? 'text-red-500' : 
+                    'text-gray-600'
+                  }`}>
+                    {autoSaveStatus === 'saving' ? 'Guardando...' : 
+                     autoSaveStatus === 'error' ? 'Error al guardar' : 
+                     'Guardado automáticamente'}
                   </div>
                 </div>
               </div>
@@ -206,6 +271,9 @@ export default function StudyInterface() {
 
       {/* Settings Modal */}
       {isSettingsOpen && <SettingsModal />}
+      
+      {/* Feedback Dialog */}
+      <FeedbackDialog />
     </div>
   );
 }
