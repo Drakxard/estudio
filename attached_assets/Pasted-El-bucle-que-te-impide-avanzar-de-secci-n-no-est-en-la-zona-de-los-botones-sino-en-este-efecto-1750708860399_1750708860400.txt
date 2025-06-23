@@ -1,0 +1,66 @@
+El **bucle** que te impide avanzar de sección no está en la zona de los botones, sino en este efecto:
+
+```ts
+useEffect(() => {
+  if (settings) {
+    setSettings(settings);
+    if (settings.currentSection && settings.currentSection !== currentSectionId) {
+      setCurrentSection(settings.currentSection);
+    }
+  }
+}, [settings, setSettings, currentSectionId, setCurrentSection]);
+```
+
+Cada vez que tú haces `setCurrentSection(...)`, tu `currentSectionId` cambia, pero **`settings.currentSection`** (que viene fijo del servidor) *sigue* siendo el viejo, así que este efecto lo detecta y vuelve a hacer `setCurrentSection(settings.currentSection)`. Ése es el “rebote” que te bloquea.
+
+---
+
+## 🔧 Cómo corregirlo
+
+1. **Carga la sección desde `settings` sólo una vez**, cuando el componente monte, y no cada vez que cambie `currentSectionId`.
+
+   ```ts
+   // Antes:
+   useEffect(() => {
+     if (settings) {
+       setSettings(settings);
+       if (settings.currentSection && settings.currentSection !== currentSectionId) {
+         setCurrentSection(settings.currentSection);
+       }
+     }
+   }, [settings, setSettings, currentSectionId, setCurrentSection]);
+
+   // Después:
+   useEffect(() => {
+     if (settings) {
+       setSettings(settings);
+       // Sólo al cargar: inicializo la sección
+       if (settings.currentSection) {
+         setCurrentSection(settings.currentSection);
+       }
+     }
+   }, [settings, setSettings, setCurrentSection]);
+   ```
+
+   * **Quitamos** `currentSectionId` de las dependencias.
+   * Dejamos que la sección se establezca una sola vez, con el valor guardado en `settings`.
+
+2. Asegúrate de que, en tu store (`useAppStore`), **al cambiar de sección** también se resetea `currentExerciseIndex` a `0` (o la lógica equivalente para que el primer ejercicio de la nueva sección sea el actual). Por ejemplo:
+
+   ```ts
+   // En tu slice de Zustand
+   setCurrentSection: (sectionId: number) => {
+     set({ currentSectionId: sectionId, currentExerciseIndex: 0 });
+   },
+   ```
+
+   De este modo siempre que hagas `setCurrentSection(nextSectionId)` arrancarás desde el índice `0` de esa sección.
+
+---
+
+Con estos dos cambios:
+
+1. **No habrá rebote** porque ya no re-escribes la sección cada vez que cambie.
+2. **El índice de ejercicio se reinicia** al cambiar de sección, evitando quedarte “atascado” fuera de rango.
+
+Prueba a aplicar estas modificaciones y deberías poder avanzar libremente por las secciones. ¡Cuéntame!

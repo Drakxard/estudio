@@ -113,11 +113,17 @@ export const useAppStore = create<AppState>()(
       setCurrentSection: (sectionId) => {
         const state = get();
         const sectionExercises = state.exercises.filter(ex => ex.sectionId === sectionId);
+        // Sort exercises by order to ensure proper sequence
+        sectionExercises.sort((a, b) => (a.order || 0) - (b.order || 0));
+        
+        // Load saved response for first exercise of new section
+        const savedResponse = sectionExercises[0] ? state.loadResponse(sectionExercises[0].id) : '';
+        
         set({
           currentSectionId: sectionId,
           currentExerciseIndex: 0,
           currentExercise: sectionExercises[0] || null,
-          currentResponse: '',
+          currentResponse: savedResponse,
         });
       },
       

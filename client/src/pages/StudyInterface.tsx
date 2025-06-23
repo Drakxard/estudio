@@ -84,11 +84,12 @@ export default function StudyInterface() {
   useEffect(() => {
     if (settings) {
       setSettings(settings);
-      if (settings.currentSection && settings.currentSection !== currentSectionId) {
+      // Only set section once on initial load, not every time currentSectionId changes
+      if (settings.currentSection) {
         setCurrentSection(settings.currentSection);
       }
     }
-  }, [settings, setSettings, currentSectionId, setCurrentSection]);
+  }, [settings, setSettings, setCurrentSection]);
 
   // Save response when navigating (not on every change)
   const saveCurrentResponse = useCallback(() => {
