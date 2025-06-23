@@ -1,7 +1,7 @@
 const { app, BrowserWindow, Menu, shell } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
-const isDev = process.env.NODE_ENV === 'development';
+const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
 let mainWindow;
 let serverProcess;
@@ -25,14 +25,20 @@ function createWindow() {
     title: 'Mathematics Study Platform'
   });
 
-  // Start the server in development mode
+  // Start the server and load URL
   if (isDev) {
     startDevServer();
-    mainWindow.loadURL('http://localhost:5000');
+    // Wait a bit for server to start
+    setTimeout(() => {
+      mainWindow.loadURL('http://localhost:5000');
+    }, 3000);
     mainWindow.webContents.openDevTools();
   } else {
     startProductionServer();
-    mainWindow.loadURL('http://localhost:5000');
+    // Wait a bit for server to start
+    setTimeout(() => {
+      mainWindow.loadURL('http://localhost:5000');
+    }, 2000);
   }
 
   // Show window when ready to prevent visual flash
@@ -54,10 +60,14 @@ function createWindow() {
 
 function startDevServer() {
   console.log('Starting development server...');
-  serverProcess = spawn('npm', ['run', 'dev'], {
+  const isWin = process.platform === 'win32';
+  const npmCmd = isWin ? 'npm.cmd' : 'npm';
+  
+  serverProcess = spawn(npmCmd, ['run', 'dev'], {
     cwd: path.join(__dirname, '..'),
     env: { ...process.env, NODE_ENV: 'development' },
-    stdio: 'inherit'
+    stdio: 'inherit',
+    shell: isWin
   });
 
   serverProcess.on('error', (err) => {
@@ -67,11 +77,25 @@ function startDevServer() {
 
 function startProductionServer() {
   console.log('Starting production server...');
-  serverProcess = spawn('npm', ['start'], {
-    cwd: path.join(__dirname, '..'),
-    env: { ...process.env, NODE_ENV: 'production' },
-    stdio: 'inherit'
-  });
+  const isWin = process.platform === 'win32';
+  
+  if (app.isPackaged) {
+    // In packaged app, start the built server directly
+    const serverPath = path.join(process.resourcesPath, 'dist', 'index.js');
+    serverProcess = spawn('node', [serverPath], {
+      env: { ...process.env, NODE_ENV: 'production' },
+      stdio: 'inherit'
+    });
+  } else {
+    // In development, use npm script
+    const npmCmd = isWin ? 'npm.cmd' : 'npm';
+    serverProcess = spawn(npmCmd, ['start'], {
+      cwd: path.join(__dirname, '..'),
+      env: { ...process.env, NODE_ENV: 'production' },
+      stdio: 'inherit',
+      shell: isWin
+    });
+  }
 
   serverProcess.on('error', (err) => {
     console.error('Failed to start production server:', err);

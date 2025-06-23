@@ -1,0 +1,8 @@
+{
+  "name": "mathematics-study-platform-electron",
+  "version": "1.0.0",
+  "description": "Electron main process for Mathematics Study Platform",
+  "main": "main.js",
+  "type": "commonjs",
+  "dependencies": {}
+}

@@ -7,10 +7,13 @@
 3. **Open Terminal/Command Prompt** in project folder
 4. **Run the build script:**
    ```cmd
-   # Double-click build-exe.cmd OR run manually:
+   # Easy way: Double-click build-exe.cmd
+   build-exe.cmd
+   
+   # OR run manually:
    npm install
    npm run build
-   npx electron-builder --win --config electron-builder.json
+   npx electron-builder --win --config package-electron-simple.json
    ```
 5. **Find your .exe** in `electron-dist/` folder:
    - `Mathematics Study Platform Setup.exe` - Full installer
@@ -30,12 +33,12 @@ To run the app in development mode:
 
 ```bash
 # Option 1: Use the batch script (Windows)
-run-electron.cmd
+test-electron.cmd
 
 # Option 2: Manual commands
 npm install
 npm run build
-npx electron electron/main.js
+npx electron electron-simple.js
 ```
 
 ## Building for Production
@@ -54,7 +57,7 @@ build-exe.cmd
 
 # Manual way:
 npm run build
-npx electron-builder --win --config electron-builder.json
+npx electron-builder --win --config package-electron-simple.json
 ```
 
 #### Outputs:
