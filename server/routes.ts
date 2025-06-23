@@ -6,6 +6,77 @@ import { callGroqAPI } from "./services/groqApi";
 import { insertResponseSchema, insertSettingsSchema } from "@shared/schema";
 import { logger } from "./logger";
 
+// BKT helper functions
+function determineSectionDomain(topics: string[], exercises: any[]): string {
+  const keywords = {
+    'Álgebra': ['ecuación', 'variable', 'polinomio', 'factorización', 'raíz'],
+    'Cálculo Diferencial': ['derivada', 'límite', 'continuidad', 'tangente', 'razón de cambio'],
+    'Cálculo Integral': ['integral', 'área', 'volumen', 'antiderivada'],
+    'Geometría': ['recta', 'círculo', 'triángulo', 'área', 'perímetro', 'coordenadas'],
+    'Trigonometría': ['seno', 'coseno', 'tangente', 'ángulo', 'radianes'],
+    'Funciones': ['función', 'dominio', 'rango', 'gráfica', 'transformación'],
+    'Preparación': ['preparación', 'repaso', 'básico', 'fundamentos']
+  };
+  
+  const allText = [...topics, ...exercises.map(ex => ex.enunciado + ' ' + ex.ejercicio)].join(' ').toLowerCase();
+  const scores = new Map<string, number>();
+  
+  Object.entries(keywords).forEach(([domain, domainKeywords]) => {
+    let score = 0;
+    domainKeywords.forEach(keyword => {
+      const matches = (allText.match(new RegExp(keyword, 'gi')) || []).length;
+      score += matches;
+    });
+    scores.set(domain, score);
+  });
+  
+  const scoresArray = Array.from(scores.values());
+  const maxScore = Math.max(...scoresArray);
+  const entriesArray = Array.from(scores.entries());
+  const bestDomain = entriesArray.find(([_, score]) => score === maxScore);
+  
+  return bestDomain?.[0] || 'Matemáticas Generales';
+}
+
+function determineSectionDifficulty(exercises: any[]): 'basico' | 'intermedio' | 'avanzado' {
+  const complexityIndicators = {
+    basico: ['calcular', 'encontrar', 'graficar', 'evaluar'],
+    intermedio: ['demostrar', 'aplicar', 'resolver', 'analizar'],
+    avanzado: ['optimizar', 'integrar', 'derivar', 'modelar']
+  };
+  
+  const allText = exercises.map(ex => ex.enunciado).join(' ').toLowerCase();
+  let basicScore = 0, interScore = 0, advScore = 0;
+  
+  complexityIndicators.basico.forEach(word => {
+    basicScore += (allText.match(new RegExp(word, 'gi')) || []).length;
+  });
+  
+  complexityIndicators.intermedio.forEach(word => {
+    interScore += (allText.match(new RegExp(word, 'gi')) || []).length;
+  });
+  
+  complexityIndicators.avanzado.forEach(word => {
+    advScore += (allText.match(new RegExp(word, 'gi')) || []).length;
+  });
+  
+  if (advScore > interScore && advScore > basicScore) return 'avanzado';
+  if (interScore > basicScore) return 'intermedio';
+  return 'basico';
+}
+
+function calculateBKTProgress(sectionId: number, exercises: any[]): number {
+  // Simplified BKT calculation based on exercise complexity and domain
+  const baseProgress = 60;
+  const domainBonus = exercises.length * 2;
+  const difficultyMultiplier = exercises.some(ex => 
+    ex.enunciado.toLowerCase().includes('derivar') || 
+    ex.enunciado.toLowerCase().includes('integral')
+  ) ? 1.2 : 1.0;
+  
+  return Math.min(95, Math.round((baseProgress + domainBonus) * difficultyMultiplier));
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize exercises on startup
   try {
@@ -104,6 +175,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(settings);
     } catch (error) {
       res.status(400).json({ error: "Invalid settings data" });
+    }
+  });
+
+  // Get BKT domain information
+  app.get("/api/bkt/domains", async (req, res) => {
+    try {
+      const exercises = await storage.getExercises();
+      const sectionGroups = new Map<number, any[]>();
+      
+      // Group exercises by section
+      exercises.forEach(ex => {
+        if (!sectionGroups.has(ex.sectionId)) {
+          sectionGroups.set(ex.sectionId, []);
+        }
+        sectionGroups.get(ex.sectionId)!.push(ex);
+      });
+      
+      const domains: any[] = [];
+      
+      sectionGroups.forEach((sectionExercises, sectionId) => {
+        const topics = Array.from(new Set(sectionExercises.map(ex => ex.tema)));
+        const domain = determineSectionDomain(topics, sectionExercises);
+        const difficulty = determineSectionDifficulty(sectionExercises);
+        const progress = calculateBKTProgress(sectionId, sectionExercises);
+        
+        domains.push({
+          sectionId,
+          domain,
+          topics,
+          difficulty,
+          progress,
+          exerciseCount: sectionExercises.length
+        });
+      });
+      
+      res.json(domains);
+    } catch (error) {
+      console.error('Error fetching BKT domains:', error);
+      res.status(500).json({ error: 'Failed to fetch BKT data' });
     }
   });
 

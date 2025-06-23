@@ -342,10 +342,13 @@ export const useAppStore = create<AppState>()(
             const maxSection = currentState.exercises.length > 0 ? Math.max(...currentState.exercises.map(ex => ex.sectionId)) : 1;
             
             if (nextSectionId <= maxSection) {
-              // Move to next section
+              // Check if next section has exercises
               const newSectionExercises = currentState.exercises.filter(ex => ex.sectionId === nextSectionId);
               if (newSectionExercises.length > 0) {
+                // Sort exercises by order within the section
+                newSectionExercises.sort((a, b) => (a.order || 0) - (b.order || 0));
                 const savedResponse = currentState.loadResponse(newSectionExercises[0].id);
+                
                 set({
                   currentSectionId: nextSectionId,
                   currentExerciseIndex: 0,
@@ -354,6 +357,34 @@ export const useAppStore = create<AppState>()(
                   showSectionTransition: false,
                   sectionCountdown: 5,
                 });
+                
+                console.log(`Advanced to Section ${nextSectionId} with ${newSectionExercises.length} exercises`);
+              } else {
+                // No exercises in next section, try the one after
+                console.log(`Section ${nextSectionId} has no exercises, checking next section`);
+                const followingSectionId = nextSectionId + 1;
+                if (followingSectionId <= maxSection) {
+                  const followingSectionExercises = currentState.exercises.filter(ex => ex.sectionId === followingSectionId);
+                  if (followingSectionExercises.length > 0) {
+                    followingSectionExercises.sort((a, b) => (a.order || 0) - (b.order || 0));
+                    const savedResponse = currentState.loadResponse(followingSectionExercises[0].id);
+                    
+                    set({
+                      currentSectionId: followingSectionId,
+                      currentExerciseIndex: 0,
+                      currentExercise: followingSectionExercises[0],
+                      currentResponse: savedResponse,
+                      showSectionTransition: false,
+                      sectionCountdown: 5,
+                    });
+                  }
+                } else {
+                  // No more sections
+                  set({
+                    showSectionTransition: false,
+                    sectionCountdown: 5,
+                  });
+                }
               }
             } else {
               // No more sections - hide transition
@@ -361,6 +392,7 @@ export const useAppStore = create<AppState>()(
                 showSectionTransition: false,
                 sectionCountdown: 5,
               });
+              console.log('Completed all sections');
             }
           } else {
             set({ sectionCountdown: currentState.sectionCountdown - 1 });

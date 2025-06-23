@@ -9,7 +9,34 @@ export function SectionTransitionDialog() {
     currentSectionId,
     cancelSectionTransition,
     exercises,
+    setCurrentSection,
+    setCurrentExercise,
+    setCurrentResponse,
+    loadResponse,
   } = useAppStore();
+
+  const advanceToNextSection = () => {
+    const nextSectionId = currentSectionId + 1;
+    const maxSection = exercises.length > 0 ? Math.max(...exercises.map(ex => ex.sectionId)) : 1;
+    
+    if (nextSectionId <= maxSection) {
+      const newSectionExercises = exercises.filter(ex => ex.sectionId === nextSectionId);
+      if (newSectionExercises.length > 0) {
+        newSectionExercises.sort((a, b) => (a.order || 0) - (b.order || 0));
+        const savedResponse = loadResponse(newSectionExercises[0].id);
+        
+        setCurrentSection(nextSectionId);
+        setCurrentExercise(0);
+        setCurrentResponse(savedResponse);
+        
+        // Close transition dialog
+        useAppStore.setState({ 
+          showSectionTransition: false, 
+          sectionCountdown: 5 
+        });
+      }
+    }
+  };
 
   const nextSectionId = currentSectionId + 1;
   const maxSection = exercises.length > 0 ? Math.max(...exercises.map(ex => ex.sectionId)) : 1;
@@ -48,9 +75,7 @@ export function SectionTransitionDialog() {
             
             {hasNextSection && (
               <Button
-                onClick={() => {
-                  // Let countdown continue
-                }}
+                onClick={advanceToNextSection}
                 className="bg-blue-600 hover:bg-blue-700"
               >
                 Continuar

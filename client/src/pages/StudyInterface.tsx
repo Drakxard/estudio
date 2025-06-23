@@ -7,6 +7,7 @@ import { SettingsModal } from '@/components/SettingsModal';
 import { FeedbackDialog } from '@/components/FeedbackDialog';
 import { SectionTransitionDialog } from '@/components/SectionTransitionDialog';
 import { RestBreakDialog } from '@/components/RestBreakDialog';
+import { BKTProgress } from '@/components/BKTProgress';
 import { apiRequest } from '@/lib/queryClient';
 import type { Exercise, Settings as SettingsType } from '@shared/schema';
 
@@ -269,8 +270,11 @@ export default function StudyInterface() {
         </div>
       </div>
 
+      {/* BKT Progress */}
+      <BKTProgress currentSectionId={currentSectionId} exercises={exercises} />
+
       {/* Bottom Shortcuts */}
-      <div className="text-center p-4 text-xs text-gray-600 border-t border-gray-800">
+      <div className="text-center p-2 text-xs text-gray-600 border-t border-gray-800">
         Ctrl+← Anterior • Ctrl+→ Siguiente • Esc Configuración
       </div>
 
