@@ -109,6 +109,10 @@ This is a comprehensive mathematics study platform built as a full-stack web app
   - Implemented dynamic section loading system with `/sube-seccion/` folder
   - Added section transition countdown (5-4-3-2-1) with feedback option
   - Created rest break notifications when Pomodoro timer completes
+  - Implemented BKT (Bayesian Knowledge Tracing) system for automatic domain detection
+  - Fixed section separation logic to create truly independent sections
+  - Added automatic difficulty classification (básico/intermedio/avanzado)
+  - Enhanced domain detection for Álgebra, Cálculo, Geometría, Trigonometría, etc.
 
 ## Development Setup
 
