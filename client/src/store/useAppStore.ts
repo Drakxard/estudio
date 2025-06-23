@@ -72,7 +72,7 @@ export const useAppStore = create<AppState>()(
       timer: {
         minutes: 25,
         seconds: 0,
-        isRunning: true,
+        isRunning: false,
         isPomodoro: true,
       },
       
@@ -139,12 +139,12 @@ export const useAppStore = create<AppState>()(
         const sectionExercises = state.exercises.filter(ex => ex.sectionId === state.currentSectionId);
         const nextIndex = state.currentExerciseIndex + 1;
         
+        // Save current response before moving (only save to local state, API call handled by component)
+        if (state.currentExercise && state.currentResponse.trim()) {
+          state.saveResponse(state.currentExercise.id, state.currentResponse);
+        }
+        
         if (nextIndex < sectionExercises.length) {
-          // Save current response before moving
-          if (state.currentExercise && state.currentResponse) {
-            state.saveResponse(state.currentExercise.id, state.currentResponse);
-          }
-          
           // Load saved response for next exercise
           const savedResponse = state.loadResponse(sectionExercises[nextIndex].id);
           
@@ -164,12 +164,12 @@ export const useAppStore = create<AppState>()(
         const sectionExercises = state.exercises.filter(ex => ex.sectionId === state.currentSectionId);
         const prevIndex = state.currentExerciseIndex - 1;
         
+        // Save current response before moving (only save to local state, API call handled by component)
+        if (state.currentExercise && state.currentResponse.trim()) {
+          state.saveResponse(state.currentExercise.id, state.currentResponse);
+        }
+        
         if (prevIndex >= 0) {
-          // Save current response before moving
-          if (state.currentExercise && state.currentResponse) {
-            state.saveResponse(state.currentExercise.id, state.currentResponse);
-          }
-          
           // Load saved response for previous exercise
           const savedResponse = state.loadResponse(sectionExercises[prevIndex].id);
           

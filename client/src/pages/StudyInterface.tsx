@@ -24,6 +24,7 @@ export default function StudyInterface() {
     previousExercise,
     exercises,
     timer,
+    startTimer,
     isSettingsOpen,
     setAutoSaveStatus,
     autoSaveStatus,
@@ -86,28 +87,16 @@ export default function StudyInterface() {
     }
   }, [settings, setSettings, currentSectionId, setCurrentSection]);
 
-  // Debounced auto-save
-  const debouncedAutoSave = useCallback(
-    (exerciseId: number, content: string) => {
-      const timeoutId = setTimeout(() => {
-        if (content.trim()) {
-          autoSaveMutation.mutate({ exerciseId, content });
-          saveResponse(exerciseId, content);
-        }
-      }, 1000); // Save after 1 second of inactivity
-
-      return () => clearTimeout(timeoutId);
-    },
-    [autoSaveMutation, saveResponse]
-  );
-
-  // Auto-save when response changes
-  useEffect(() => {
-    if (currentExercise && currentResponse) {
-      const cleanup = debouncedAutoSave(currentExercise.id, currentResponse);
-      return cleanup;
+  // Save response when navigating (not on every change)
+  const saveCurrentResponse = useCallback(() => {
+    if (currentExercise && currentResponse.trim()) {
+      autoSaveMutation.mutate({ 
+        exerciseId: currentExercise.id, 
+        content: currentResponse 
+      });
+      saveResponse(currentExercise.id, currentResponse);
     }
-  }, [currentResponse, currentExercise, debouncedAutoSave]);
+  }, [currentExercise, currentResponse, autoSaveMutation, saveResponse]);
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -116,16 +105,18 @@ export default function StudyInterface() {
         toggleSettings();
       } else if (e.key === 'ArrowLeft' && e.ctrlKey) {
         e.preventDefault();
+        saveCurrentResponse(); // Save before navigating
         previousExercise();
       } else if (e.key === 'ArrowRight' && e.ctrlKey) {
         e.preventDefault();
+        saveCurrentResponse(); // Save before navigating
         nextExercise();
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [toggleSettings, nextExercise, previousExercise]);
+  }, [toggleSettings, nextExercise, previousExercise, saveCurrentResponse]);
 
   // Get current section exercises
   const sectionExercises = exercises.filter(ex => ex.sectionId === currentSectionId);
@@ -183,7 +174,10 @@ export default function StudyInterface() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={previousExercise}
+            onClick={() => {
+              saveCurrentResponse();
+              previousExercise();
+            }}
             disabled={currentExerciseIndex === 0}
             className="p-2 hover:bg-gray-800 text-gray-400 hover:text-gray-200 disabled:opacity-30"
           >
@@ -214,7 +208,13 @@ export default function StudyInterface() {
               <div className="space-y-4">
                 <textarea
                   value={currentResponse}
-                  onChange={(e) => setCurrentResponse(e.target.value)}
+                  onChange={(e) => {
+                    setCurrentResponse(e.target.value);
+                    // Start timer when user begins typing
+                    if (e.target.value.length === 1 && !timer.isRunning) {
+                      startTimer();
+                    }
+                  }}
                   placeholder="Escribe tu respuesta aquí..."
                   className="w-full h-64 bg-gray-925 border border-gray-800 rounded-xl p-6 text-lg leading-relaxed resize-none focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder-gray-500"
                 />
@@ -255,7 +255,10 @@ export default function StudyInterface() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={nextExercise}
+            onClick={() => {
+              saveCurrentResponse();
+              nextExercise();
+            }}
             disabled={currentExerciseIndex >= sectionExercises.length - 1}
             className="p-2 hover:bg-gray-800 text-gray-400 hover:text-gray-200 disabled:opacity-30"
           >
