@@ -20,6 +20,7 @@ interface AppState {
   
   // Timer
   timer: TimerState;
+  timerInterval: number | null;
   
   // Settings
   settings: Settings | null;
@@ -29,6 +30,8 @@ interface AppState {
   isLoading: boolean;
   autoSaveStatus: 'saved' | 'saving' | 'error';
   showFeedbackDialog: boolean;
+  showSectionTransition: boolean;
+  sectionCountdown: number;
   
   // Actions
   setExercises: (exercises: Exercise[]) => void;
@@ -54,8 +57,10 @@ interface AppState {
   // Auto-save
   setAutoSaveStatus: (status: 'saved' | 'saving' | 'error') => void;
   
-  // Feedback
+  // Feedback and section transition
   setShowFeedbackDialog: (show: boolean) => void;
+  startSectionTransition: () => void;
+  cancelSectionTransition: () => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -75,6 +80,7 @@ export const useAppStore = create<AppState>()(
         isRunning: false,
         isPomodoro: true,
       },
+      timerInterval: null,
       
       settings: null,
       
@@ -82,6 +88,8 @@ export const useAppStore = create<AppState>()(
       isLoading: false,
       autoSaveStatus: 'saved',
       showFeedbackDialog: false,
+      showSectionTransition: false,
+      sectionCountdown: 5,
       
       // Actions
       setExercises: (exercises) => {
@@ -154,8 +162,8 @@ export const useAppStore = create<AppState>()(
             currentResponse: savedResponse,
           });
         } else {
-          // End of section - show feedback dialog
-          set({ showFeedbackDialog: true });
+          // End of section - start countdown with feedback option
+          state.startSectionTransition();
         }
       },
       
@@ -183,12 +191,32 @@ export const useAppStore = create<AppState>()(
       
       // Timer actions
       startTimer: () => {
-        set(state => ({
-          timer: { ...state.timer, isRunning: true }
-        }));
+        const state = get();
+        if (state.timerInterval) return; // Already running
+        
+        const timerMinutes = state.settings?.pomodoroMinutes || 25;
+        set({
+          timer: {
+            minutes: timerMinutes,
+            seconds: 0,
+            isRunning: true,
+            isPomodoro: true,
+          }
+        });
+        
+        const intervalId = window.setInterval(() => {
+          get().updateTimer();
+        }, 1000);
+        
+        set({ timerInterval: intervalId });
       },
       
       pauseTimer: () => {
+        const state = get();
+        if (state.timerInterval) {
+          clearInterval(state.timerInterval);
+          set({ timerInterval: null });
+        }
         set(state => ({
           timer: { ...state.timer, isRunning: false }
         }));
@@ -196,12 +224,16 @@ export const useAppStore = create<AppState>()(
       
       resetTimer: (minutes) => {
         const state = get();
+        if (state.timerInterval) {
+          clearInterval(state.timerInterval);
+          set({ timerInterval: null });
+        }
         const timerMinutes = minutes || state.settings?.pomodoroMinutes || 25;
         set({
           timer: {
             minutes: timerMinutes,
             seconds: 0,
-            isRunning: true,
+            isRunning: false,
             isPomodoro: true,
           }
         });
@@ -273,6 +305,58 @@ export const useAppStore = create<AppState>()(
       setShowFeedbackDialog: (show) => {
         set({ showFeedbackDialog: show });
       },
+      
+      startSectionTransition: () => {
+        set({ 
+          showSectionTransition: true, 
+          sectionCountdown: 5 
+        });
+        
+        const countdownInterval = setInterval(() => {
+          const state = get();
+          if (state.sectionCountdown <= 1) {
+            // Countdown finished - move to next section
+            clearInterval(countdownInterval);
+            const nextSectionId = state.currentSectionId + 1;
+            const maxSection = state.exercises.length > 0 ? Math.max(...state.exercises.map(ex => ex.sectionId)) : 1;
+            
+            if (nextSectionId <= maxSection) {
+              set({
+                currentSectionId: nextSectionId,
+                currentExerciseIndex: 0,
+                showSectionTransition: false,
+                sectionCountdown: 5,
+              });
+              
+              // Set first exercise of new section
+              const newSectionExercises = state.exercises.filter(ex => ex.sectionId === nextSectionId);
+              if (newSectionExercises.length > 0) {
+                const savedResponse = state.loadResponse(newSectionExercises[0].id);
+                set({
+                  currentExercise: newSectionExercises[0],
+                  currentResponse: savedResponse,
+                });
+              }
+            } else {
+              // No more sections - stay on current
+              set({
+                showSectionTransition: false,
+                sectionCountdown: 5,
+              });
+            }
+          } else {
+            set({ sectionCountdown: state.sectionCountdown - 1 });
+          }
+        }, 1000);
+      },
+      
+      cancelSectionTransition: () => {
+        set({ 
+          showSectionTransition: false,
+          sectionCountdown: 5,
+          showFeedbackDialog: true 
+        });
+      },
     }),
     {
       name: 'math-study-store',
@@ -281,6 +365,7 @@ export const useAppStore = create<AppState>()(
         currentExerciseIndex: state.currentExerciseIndex,
         responses: state.responses,
         settings: state.settings,
+        timer: state.timer,
       }),
     }
   )

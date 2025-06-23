@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Settings, Timer } from 'lucide-react';
 import { SettingsModal } from '@/components/SettingsModal';
 import { FeedbackDialog } from '@/components/FeedbackDialog';
+import { SectionTransitionDialog } from '@/components/SectionTransitionDialog';
 import { apiRequest } from '@/lib/queryClient';
 import type { Exercise, Settings as SettingsType } from '@shared/schema';
 
@@ -277,6 +278,9 @@ export default function StudyInterface() {
       
       {/* Feedback Dialog */}
       <FeedbackDialog />
+      
+      {/* Section Transition Dialog */}
+      <SectionTransitionDialog />
     </div>
   );
 }
