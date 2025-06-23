@@ -96,7 +96,42 @@ This is a comprehensive mathematics study platform built as a full-stack web app
 ## Changelog
 
 - June 23, 2025. Initial setup
+- June 23, 2025. Built ultra-minimalist mathematics study interface with dark theme, large writing area, discrete indicators, and side navigation buttons
+- June 23, 2025. Implemented dynamic exercise loading system that reads from JavaScript files with "seccion", "tema", "enunciado", and "id" structure
+- June 23, 2025. Added cross-env compatibility for Windows development
+
+## Development Setup
+
+### Running on Windows/PC
+The project uses cross-env for Windows compatibility. To run on your PC:
+
+```bash
+# Install dependencies
+npm install
+
+# Run development server (cross-env compatible)
+npm run dev
+```
+
+Alternative manual command:
+```bash
+cross-env NODE_ENV=development tsx server/index.ts
+```
+
+### Exercise Data Structure
+The system dynamically loads exercises from JavaScript files with this format:
+```javascript
+export const ejercicios = [
+  {
+    "seccion": "Seccion 1",
+    "tema": "Topic name",
+    "enunciado": "Exercise statement",
+    "id": "Exercise content"
+  }
+]
+```
 
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
+System compatibility: Windows PC using cross-env for npm scripts.
