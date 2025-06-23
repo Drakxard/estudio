@@ -232,7 +232,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const response = await callGroqAPI(
         `Por favor, resuelve el siguiente ejercicio de matemáticas paso a paso:\n\n${exerciseText}`,
-        apiKey
+        apiKey,
+        'llama-3.1-8b-instant'
       );
       
       res.json({ response });
@@ -245,7 +246,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get AI feedback for section completion
   app.post("/api/ai/feedback", async (req, res) => {
     try {
-      const { exercises, responses, apiKey } = req.body;
+      const { exercises, responses, apiKey, modelId = 'llama-3.1-8b-instant', customPrompt } = req.body;
       
       if (!exercises || !Array.isArray(exercises)) {
         return res.status(400).json({ error: "Exercises array is required" });
@@ -255,8 +256,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "API key is required" });
       }
 
-      // Create feedback prompt
-      let prompt = "He completado una sección de ejercicios de matemáticas. Por favor, proporciona retroalimentación sobre mi progreso:\n\n";
+      // Use custom prompt if provided, otherwise use default
+      let prompt;
+      if (customPrompt && customPrompt.trim()) {
+        prompt = `${customPrompt}\n\nEjercicios y respuestas:\n`;
+      } else {
+        prompt = "He completado una sección de ejercicios de matemáticas. Por favor, proporciona retroalimentación sobre mi progreso:\n\n";
+      }
       
       exercises.forEach((exercise, index) => {
         const response = responses && responses[index] ? responses[index] : "Sin respuesta";
@@ -268,12 +274,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         prompt += `Mi respuesta: ${response}\n\n`;
       });
 
-      prompt += "Por favor, proporciona:\n";
-      prompt += "1. Retroalimentación general sobre mi comprensión\n";
-      prompt += "2. Áreas que debo mejorar\n";
-      prompt += "3. Sugerencias para seguir estudiando\n";
+      if (!customPrompt || !customPrompt.trim()) {
+        prompt += "Por favor, proporciona:\n";
+        prompt += "1. Retroalimentación general sobre mi comprensión\n";
+        prompt += "2. Áreas que debo mejorar\n";
+        prompt += "3. Sugerencias para seguir estudiando\n";
+        prompt += "4. Usa LaTeX para fórmulas matemáticas cuando sea necesario (formato $formula$ para inline y $$formula$$ para display).\n";
+      }
 
-      const feedback = await callGroqAPI(prompt, apiKey);
+      const feedback = await callGroqAPI(prompt, apiKey, modelId);
       
       res.json({ feedback });
     } catch (error) {

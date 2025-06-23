@@ -113,6 +113,10 @@ This is a comprehensive mathematics study platform built as a full-stack web app
   - Fixed section separation logic to create truly independent sections
   - Added automatic difficulty classification (básico/intermedio/avanzado)
   - Enhanced domain detection for Álgebra, Cálculo, Geometría, Trigonometría, etc.
+  - **FIXED:** Section navigation loop issue that prevented advancing between sections
+  - **ADDED:** KaTeX support for mathematical notation rendering in exercises and feedback
+  - **ENHANCED:** Settings with custom feedback prompts and multiple Groq model selection
+  - **ADDED:** Mathematical formula rendering with LaTeX support ($formula$ and $$formula$$)
 
 ## Development Setup
 

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { apiRequest } from '@/lib/queryClient';
 import { Loader2 } from 'lucide-react';
+import { MathRenderer } from './MathRenderer';
 
 export function FeedbackDialog() {
   const {
@@ -37,6 +38,8 @@ export function FeedbackDialog() {
           exercises: sectionExercises,
           responses: sectionResponses,
           apiKey: settings.groqApiKey,
+          modelId: settings.groqModelId || 'llama-3.1-8b-instant',
+          customPrompt: settings.feedbackPrompt,
         }),
       });
 
@@ -107,11 +110,9 @@ export function FeedbackDialog() {
           {feedback && (
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-100">Retroalimentación:</h3>
-              <Textarea
-                value={feedback}
-                readOnly
-                className="min-h-[300px] bg-gray-800 border-gray-600 text-gray-100 resize-none"
-              />
+              <div className="min-h-[300px] bg-gray-800 border border-gray-600 rounded-md p-4 text-gray-100">
+                <MathRenderer content={feedback} />
+              </div>
             </div>
           )}
         </div>

@@ -1,4 +1,4 @@
-export async function callGroqAPI(prompt: string, apiKey: string): Promise<string> {
+export async function callGroqAPI(prompt: string, apiKey: string, modelId: string = 'llama-3.1-8b-instant'): Promise<string> {
   const startTime = Date.now();
 
   try {
@@ -9,7 +9,7 @@ export async function callGroqAPI(prompt: string, apiKey: string): Promise<strin
       throw new Error("GROQ_API_KEY not provided");
     }
 
-    const selectedModel = "llama-3.1-8b-instant";
+    const selectedModel = modelId;
 
     const systemPrompt = `Eres un asistente especializado en matemáticas y educación adaptativa. 
 

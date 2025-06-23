@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import type { Settings } from '@shared/schema';
 
 export function SettingsModal() {
@@ -27,6 +28,8 @@ export function SettingsModal() {
     pomodoroMinutes: 25,
     maxTimeMinutes: 10,
     groqApiKey: '',
+    groqModelId: 'llama-3.1-8b-instant',
+    feedbackPrompt: 'Eres un profesor de matemáticas experto. Analiza la respuesta del estudiante y proporciona retroalimentación constructiva con explicaciones claras y ejemplos cuando sea necesario.',
     currentSection: 1,
   });
 
@@ -53,6 +56,7 @@ export function SettingsModal() {
       const response = await apiRequest('POST', '/api/ai/response', {
         exerciseText: 'Test: ¿Cuál es la derivada de x²?',
         apiKey: formData.groqApiKey,
+        modelId: formData.groqModelId,
       });
       return response.json();
     },
@@ -65,6 +69,8 @@ export function SettingsModal() {
         pomodoroMinutes: serverSettings.pomodoroMinutes || 25,
         maxTimeMinutes: serverSettings.maxTimeMinutes || 10,
         groqApiKey: serverSettings.groqApiKey || '',
+        groqModelId: serverSettings.groqModelId || 'llama-3.1-8b-instant',
+        feedbackPrompt: serverSettings.feedbackPrompt || 'Eres un profesor de matemáticas experto. Analiza la respuesta del estudiante y proporciona retroalimentación constructiva con explicaciones claras y ejemplos cuando sea necesario.',
         currentSection: serverSettings.currentSection || 1,
       });
     }
@@ -216,6 +222,57 @@ export function SettingsModal() {
             {testApiMutation.isError && (
               <p className="text-xs text-red-400 mt-1">✗ Error al conectar con la API</p>
             )}
+          </div>
+
+          {/* Groq Model Selection */}
+          <div>
+            <Label className="block text-sm font-medium mb-2 text-gray-300">
+              Modelo de IA (Groq)
+            </Label>
+            <Select
+              value={formData.groqModelId}
+              onValueChange={(value) => setFormData(prev => ({ ...prev, groqModelId: value }))}
+            >
+              <SelectTrigger className="w-full bg-gray-800 border-gray-700 text-gray-200">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-gray-800 border-gray-700">
+                <SelectItem value="llama-3.1-8b-instant" className="text-gray-200 focus:bg-gray-700">
+                  Llama 3.1 8B (Rápido)
+                </SelectItem>
+                <SelectItem value="llama-3.1-70b-versatile" className="text-gray-200 focus:bg-gray-700">
+                  Llama 3.1 70B (Versátil)
+                </SelectItem>
+                <SelectItem value="llama-3.2-1b-preview" className="text-gray-200 focus:bg-gray-700">
+                  Llama 3.2 1B (Preview)
+                </SelectItem>
+                <SelectItem value="llama-3.2-3b-preview" className="text-gray-200 focus:bg-gray-700">
+                  Llama 3.2 3B (Preview)
+                </SelectItem>
+                <SelectItem value="mixtral-8x7b-32768" className="text-gray-200 focus:bg-gray-700">
+                  Mixtral 8x7B (32K tokens)
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-gray-500 mt-1">
+              Selecciona el modelo de IA para generar feedback
+            </p>
+          </div>
+
+          {/* Custom Feedback Prompt */}
+          <div>
+            <Label className="block text-sm font-medium mb-2 text-gray-300">
+              Prompt personalizado para feedback
+            </Label>
+            <Textarea
+              placeholder="Personaliza cómo la IA genera feedback..."
+              value={formData.feedbackPrompt}
+              onChange={(e) => setFormData(prev => ({ ...prev, feedbackPrompt: e.target.value }))}
+              className="bg-gray-800 border-gray-700 text-gray-200 placeholder-gray-500 min-h-[100px]"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Define cómo quieres que la IA analice y responda a tus ejercicios
+            </p>
           </div>
         </div>
         

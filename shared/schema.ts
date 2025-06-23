@@ -24,6 +24,8 @@ export const settings = pgTable("settings", {
   pomodoroMinutes: integer("pomodoro_minutes").default(25),
   maxTimeMinutes: integer("max_time_minutes").default(10),
   groqApiKey: text("groq_api_key"),
+  groqModelId: text("groq_model_id").default("llama-3.1-8b-instant"),
+  feedbackPrompt: text("feedback_prompt").default("Eres un profesor de matemáticas experto. Analiza la respuesta del estudiante y proporciona retroalimentación constructiva con explicaciones claras y ejemplos cuando sea necesario."),
   currentSection: integer("current_section").default(1),
   currentExercise: integer("current_exercise").default(0),
 });
