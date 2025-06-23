@@ -117,10 +117,14 @@ This is a comprehensive mathematics study platform built as a full-stack web app
   - **ADDED:** KaTeX support for mathematical notation rendering in exercises and feedback
   - **ENHANCED:** Settings with custom feedback prompts and multiple Groq model selection
   - **ADDED:** Mathematical formula rendering with LaTeX support ($formula$ and $$formula$$)
+  - **INTEGRATED:** Electron desktop app support for standalone .exe generation
+  - **ADDED:** Complete desktop app packaging with Windows installer and portable versions
 
 ## Development Setup
 
 ### Running on Windows/PC
+
+#### Web Version
 The project uses cross-env for Windows compatibility. To run on your PC:
 
 ```bash
@@ -131,10 +135,31 @@ npm install
 npm run dev
 ```
 
-Alternative manual command:
+#### Desktop App (Electron)
+Convert to standalone .exe application:
+
 ```bash
-cross-env NODE_ENV=development tsx server/index.ts
+# Development mode with hot reload
+node electron-dev.js
+
+# Build production .exe
+npm run build
+npx electron-builder --win
+
+# Or use the automated script
+npm run electron:build
 ```
+
+**Build Outputs:**
+- `electron-dist/Mathematics Study Platform Setup.exe` - Windows installer
+- `electron-dist/win-unpacked/Mathematics Study Platform.exe` - Portable version
+
+The desktop app includes:
+- Native window controls and menus
+- Keyboard shortcuts (Ctrl+Left/Right for navigation)
+- Offline capability (except AI features)
+- System integration with proper icons
+- No browser dependency
 
 ### Exercise Data Structure
 

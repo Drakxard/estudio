@@ -1,0 +1,14 @@
+{
+  "name": "mathematics-study-platform",
+  "version": "1.0.0",
+  "description": "Comprehensive mathematics study platform with AI assistance",
+  "main": "electron/main.js",
+  "homepage": "./",
+  "scripts": {
+    "electron": "NODE_ENV=development electron electron/main.js",
+    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5000 && electron electron/main.js\"",
+    "electron:build": "npm run build && electron-builder",
+    "electron:dist": "npm run build && electron-builder --publish=never",
+    "electron:pack": "npm run build && electron-builder --dir"
+  }
+}
