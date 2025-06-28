@@ -8,6 +8,7 @@
 /sube-seccion/
 
 # Salidas de Electron
+/electron/
 /electron/dist/
 /electron/build/
 /electron-final/
@@ -41,3 +42,5 @@ Thumbs.db
 # Archivos temporales
 *.tmp
 *.swp
+
+certs/*.pfx

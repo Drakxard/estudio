@@ -1,3 +1,4 @@
+import React from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { MathRenderer } from './MathRenderer';
 
@@ -34,7 +35,7 @@ export function ExerciseStatement({ className }: ExerciseStatementProps) {
       
       <div className="bg-gray-925 border border-gray-800 rounded-xl p-8 mb-6">
         <div className="text-lg leading-relaxed text-center">
-          <MathRenderer content={displayText} />
+          <MathRenderer content={displayText} displayMode />
         </div>
       </div>
     </div>

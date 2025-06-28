@@ -22,17 +22,11 @@ export function SettingsModal() {
     setCurrentSection,
     exercises,
     resetTimer,
+    loadExercises,
+    uploadExerciseFiles,
   } = useAppStore();
 
-  // Local state for form
-  const [formData, setFormData] = useState({
-    pomodoroMinutes: 25,
-    maxTimeMinutes: 10,
-    groqApiKey: '',
-    groqModelId: 'llama-3.1-8b-instant',
-    feedbackPrompt: 'Eres un profesor de matemáticas experto. Analiza la respuesta del estudiante y proporciona retroalimentación constructiva con explicaciones claras y ejemplos cuando sea necesario.',
-    currentSection: 1,
-  });
+
 
   // Section files management state
   const [showSectionManager, setShowSectionManager] = useState(false);
@@ -68,38 +62,78 @@ export function SettingsModal() {
       return response.json();
     },
   });
+// Section files queries and mutations
+const { data: sectionFiles = [] } = useQuery<string[]>({
+  queryKey: ['/api/sections/files'],
+  enabled: showSectionManager,
+});
 
-  // Section files queries and mutations
-  const { data: sectionFiles = [] } = useQuery<string[]>({
-    queryKey: ['/api/sections/files'],
-    enabled: showSectionManager,
-  });
 
-  const uploadFileMutation = useMutation({
-    mutationFn: async ({ filename, content }: { filename: string; content: string }) => {
-      const response = await apiRequest('POST', '/api/sections/upload', { filename, content });
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/sections/files'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/exercises'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/bkt/domains'] });
-      setNewFileName('');
-      setNewFileContent('');
-    },
-  });
 
-  const deleteFileMutation = useMutation({
-    mutationFn: async (filename: string) => {
-      const response = await apiRequest('DELETE', `/api/sections/files/${filename}`);
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/sections/files'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/exercises'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/bkt/domains'] });
-    },
-  });
+// — NUEVO: query para ejercicios dinámicos —
+const {
+  data: exercisesList = [],
+  refetch: refetchExercises,
+} = useQuery({
+  queryKey: ['/api/exercises'],
+  queryFn: () => fetch('/api/exercises').then(res => res.json()),
+  enabled: showSectionManager,
+});
+
+const uploadFileMutation = useMutation({
+  mutationFn: async ({ filename, content }: { filename: string; content: string }) => {
+    const response = await apiRequest('POST', '/api/sections/upload', { filename, content });
+    return response.json();
+  },
+  onSuccess: async () => {
+    // 1) invalidamos las queries
+    await queryClient.invalidateQueries({ queryKey: ['/api/sections/files'] });
+    await queryClient.invalidateQueries({ queryKey: ['/api/exercises'] });
+    await queryClient.invalidateQueries({ queryKey: ['/api/bkt/domains'] });
+
+    // 2) forzamos refetch inmediato
+    await queryClient.refetchQueries({ queryKey: ['/api/sections/files'] });
+    await queryClient.refetchQueries({ queryKey: ['/api/exercises'] });
+
+    // 3) refetch explícito para forzar propagación inmediata
+    await refetchExercises();
+
+    // 4) limpiamos el form de upload
+    setNewFileName('');
+    setNewFileContent('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  },
+});
+
+const deleteFileMutation = useMutation({
+  mutationFn: async (filename: string) => {
+    const response = await apiRequest(
+      'DELETE',
+      `/api/sections/files/${encodeURIComponent(filename)}`
+    );
+    return response.json();
+  },
+  onSuccess: async () => { // ← debes marcar esto como async
+    // 1) refrescamos la lista de archivos y ejercicios
+    await queryClient.invalidateQueries({ queryKey: ['/api/sections/files'] });
+    await queryClient.invalidateQueries({ queryKey: ['/api/exercises'] });
+    await queryClient.invalidateQueries({ queryKey: ['/api/bkt/domains'] });
+
+    // 2) además disparamos el refetch explícito
+    await refetchExercises();
+
+    // 3) limpiamos el form de upload
+    setNewFileName('');
+    setNewFileContent('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  },
+});
+
+
 
   // Load settings into form
   useEffect(() => {
@@ -140,19 +174,43 @@ export function SettingsModal() {
     testApiMutation.mutate();
   };
 
-  // Handle file upload
-  const handleFileUpload = () => {
-    if (!newFileName.trim() || !newFileContent.trim()) {
-      return;
-    }
-    
-    let filename = newFileName.trim();
-    if (!filename.endsWith('.js')) {
-      filename += '.js';
-    }
-    
-    uploadFileMutation.mutate({ filename, content: newFileContent });
-  };
+const handleFileUpload = async () => {
+  const fileInput = fileInputRef.current;
+  const files = fileInput?.files ? Array.from(fileInput.files) : [];
+
+  if (files.length === 0) return;
+
+  setUploading(true);
+  try {
+    // 1) Sube todos los archivos al servidor
+    await uploadExerciseFiles(files);
+
+    // 2) Limpia los inputs de UI
+    setMultiFileNames([]);
+    setMultiFileContents([]);
+    if (fileInput) fileInput.value = '';
+
+    // 3) Invalida los caches de React Query
+    await queryClient.invalidateQueries({ queryKey: ['/api/sections/files'] });
+    await queryClient.invalidateQueries({ queryKey: ['/api/exercises'] });
+    await queryClient.invalidateQueries({ queryKey: ['/api/bkt/domains'] });
+
+    // 4) Fuerza refetch inmediato
+    await refetchSectionFiles();
+    await refetchExercises();
+
+    // 5) (Opcional) Re-aplica la sección actual en el store
+    // setCurrentSection(formData.currentSection);
+
+  } catch (err) {
+    console.error("Error al subir archivos:", err);
+    // aquí podrías mostrar un toast de error
+  } finally {
+    setUploading(false);
+  }
+};
+
+
 
   // Handle file deletion
   const handleFileDelete = (filename: string) => {
@@ -175,24 +233,71 @@ export function SettingsModal() {
     }
   };
 
-  // Calculate section options
-  const sectionOptions = exercises.length > 0
-    ? Array.from(new Set(exercises.map(ex => ex.sectionId))).sort()
-    : [1, 2, 3, 4, 5, 6, 7, 8];
+const handleDeleteAllFiles = () => {
+  if (
+    sectionFiles.length === 0 ||
+    !confirm('¿Estás seguro de que quieres borrar TODOS los archivos de sección? Esta acción no se puede deshacer.')
+  ) {
+    return;
+  }
 
-  const getSectionName = (sectionId: number): string => {
-    const sectionNames: Record<number, string> = {
-      1: 'Preparación para el cálculo',
-      2: 'Funciones y Gráficas',
-      3: 'Funciones Inversas y Logaritmos',
-      4: 'Límites y Continuidad',
-      5: 'Derivadas',
-      6: 'Aplicaciones de Derivadas',
-      7: 'Integrales',
-      8: 'Aplicaciones de Integrales',
-    };
-    return sectionNames[sectionId] || `Sección ${sectionId}`;
-  };
+  // Ejecutar la mutación para cada archivo
+  sectionFiles.forEach((filename) => {
+    deleteFileMutation.mutate(filename);
+  });
+};
+
+// Estados para múltiples archivos
+const [multiFileNames, setMultiFileNames] = useState<string[]>([]);
+const [multiFileContents, setMultiFileContents] = useState<string[]>([]);
+const [uploading, setUploading] = useState(false);
+
+// Handler para selección múltiple
+const handleBulkFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const files = e.target.files ? Array.from(e.target.files) : [];
+  // Guardamos sólo los nombres
+  setMultiFileNames(files.map(f => f.name));
+  // Leemos todos los contenidos en paralelo
+  const texts = await Promise.all(files.map(f => f.text()));
+  setMultiFileContents(texts);
+};
+
+
+// Calcula dinámicamente las secciones según el nombre del fichero
+// Calcula dinámicamente las secciones según el nombre del fichero
+const sectionFileNames = Array.from(
+  new Set(exercises.map(ex => ex.fileName))
+).sort();
+// A partir de los nombres de fichero, crea las opciones
+const sectionOptions = sectionFileNames.map(name => ({
+  value: name,
+  label: name,
+}));
+
+// inicializa con el primer archivo (o "")
+const defaultSection = sectionFileNames[0] ?? '';
+useEffect(() => {
+  if (sectionFileNames.length > 0 && !formData.currentSection) {
+    setFormData(prev => ({
+      ...prev,
+      currentSection: sectionFileNames[0],  // usa el primer nombre de archivo
+    }));
+  }
+}, [sectionFileNames]);
+const [formData, setFormData] = useState<{ currentSection: string }>({
+  currentSection: defaultSection,
+});
+
+const getSectionName = (fileName?: string): string => {
+  if (!fileName) return 'Sin sección';
+  // 1) Quita la extensión
+  const withoutExt = fileName.replace(/\.[^.]+$/, '');
+  // 2) Separa por guión o espacio y descarta el prefijo numérico
+  const parts = withoutExt.split(/[-_\s]+/);
+  if (/^\d+$/.test(parts[0])) parts.shift();
+  // 3) Capitaliza cada palabra
+  return parts.map(p => p[0].toUpperCase() + p.slice(1)).join(' ');
+};
 
   return (
     <Dialog open={isSettingsOpen} onOpenChange={toggleSettings}>
@@ -220,31 +325,46 @@ export function SettingsModal() {
               </Button>
             </div>
             <Select
-              value={formData.currentSection.toString()}
-              onValueChange={(value) => setFormData(prev => ({ ...prev, currentSection: parseInt(value) }))}
+              value={formData.currentSection}
+              onValueChange={(value) =>
+                setFormData(prev => ({ ...prev, currentSection: value }))
+              }
             >
               <SelectTrigger className="w-full bg-gray-800 border-gray-700 text-gray-200">
-                <SelectValue />
+                <SelectValue placeholder="Selecciona sección" />
               </SelectTrigger>
+
               <SelectContent className="bg-gray-800 border-gray-700">
-                {sectionOptions.map((sectionId) => (
-                  <SelectItem 
-                    key={sectionId} 
-                    value={sectionId.toString()}
+                {sectionOptions.map(option => (
+                  <SelectItem
+                    key={option.value}
+                    value={option.value}
                     className="text-gray-200 focus:bg-gray-700"
                   >
-                    Sección {sectionId}: {getSectionName(sectionId)}
+                    {option.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-          </div>
 
+          </div>
+       
           {/* Section File Manager */}
           {showSectionManager && (
             <div className="border border-gray-700 rounded-lg p-4 space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium text-gray-200">Gestión de Secciones</h3>
+                   <div className="flex justify-end">
+                    <Button
+                      onClick={handleDeleteAllFiles}
+                      variant="destructive"
+                      size="sm"
+                      className="bg-red-600 hover:bg-red-700"
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Borrar todo
+                    </Button>
+                  </div>
+                         
                 <Button
                   onClick={() => setShowSectionManager(false)}
                   variant="ghost"
@@ -254,8 +374,28 @@ export function SettingsModal() {
                   ×
                 </Button>
               </div>
+            </div>  
+            )}   
 
-              {/* Upload Section */}
+       {/* Aquí: listado de secciones con botón de “X” */}
+              <ul className="space-y-2">
+                {sectionFiles.map((filename) => (
+                  <li key={filename} className="flex justify-between items-center bg-gray-800 p-2 rounded">
+                    <span className="text-gray-200 text-sm font-mono">{filename}</span>
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      className="text-red-500 hover:bg-red-600 hover:text-white"
+                      onClick={() => handleFileDelete(filename)}
+                    >
+                      ×
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+
+              {/* El resto: formulario de subida… */}
+              {/* Upload Section (multi-file) */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <Button
@@ -265,47 +405,50 @@ export function SettingsModal() {
                     className="bg-gray-800 border-gray-600 text-gray-200 hover:bg-gray-700"
                   >
                     <Upload className="h-4 w-4 mr-1" />
-                    Seleccionar archivo
+                    Seleccionar archivos
                   </Button>
                   <span className="text-xs text-gray-500">Solo archivos .js</span>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".js"
+                    multiple
+                    onChange={handleBulkFileChange}
+                    className="hidden"
+                  />
                 </div>
-                
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".js"
-                  onChange={handleFileInputChange}
-                  className="hidden"
-                />
 
-                {newFileName && (
-                  <div className="space-y-2">
-                    <Input
-                      value={newFileName}
-                      onChange={(e) => setNewFileName(e.target.value)}
-                      placeholder="Nombre del archivo"
-                      className="bg-gray-800 border-gray-700 text-gray-200"
-                    />
-                    <Textarea
-                      value={newFileContent}
-                      onChange={(e) => setNewFileContent(e.target.value)}
-                      placeholder="Contenido del archivo JavaScript..."
-                      className="bg-gray-800 border-gray-700 text-gray-200 h-32 font-mono text-sm"
-                    />
+                {multiFileNames.length > 0 && (
+                  <div className="space-y-4">
+                    {multiFileNames.map((name, idx) => (
+                      <div key={idx} className="p-2 bg-gray-800 rounded space-y-1">
+                        <p className="text-sm font-medium text-gray-200">{name}</p>
+                        <Textarea
+                          value={multiFileContents[idx]}
+                          onChange={e => {
+                            const arr = [...multiFileContents];
+                            arr[idx] = e.target.value;
+                            setMultiFileContents(arr);
+                          }}
+                          placeholder="Contenido del archivo JavaScript..."
+                          className="bg-gray-700 text-gray-100 font-mono text-sm h-24"
+                        />
+                      </div>
+                    ))}
                     <div className="flex gap-2">
                       <Button
                         onClick={handleFileUpload}
-                        disabled={uploadFileMutation.isPending}
+                        disabled={uploading}
                         size="sm"
                         className="bg-green-600 hover:bg-green-700"
                       >
                         <Plus className="h-4 w-4 mr-1" />
-                        {uploadFileMutation.isPending ? 'Subiendo...' : 'Subir'}
+                        {uploading ? 'Subiendo...' : 'Subir todos'}
                       </Button>
                       <Button
                         onClick={() => {
-                          setNewFileName('');
-                          setNewFileContent('');
+                          setMultiFileNames([]);
+                          setMultiFileContents([]);
                         }}
                         size="sm"
                         variant="outline"
@@ -318,45 +461,7 @@ export function SettingsModal() {
                 )}
               </div>
 
-              {/* File List */}
-              <div className="space-y-2">
-                <h4 className="text-xs font-medium text-gray-400 uppercase tracking-wide">
-                  Archivos subidos ({sectionFiles.length})
-                </h4>
-                {sectionFiles.length === 0 ? (
-                  <p className="text-xs text-gray-500 italic">No hay archivos subidos</p>
-                ) : (
-                  <div className="space-y-1 max-h-32 overflow-y-auto">
-                    {sectionFiles.map((filename) => (
-                      <div
-                        key={filename}
-                        className="flex items-center justify-between bg-gray-800 rounded px-2 py-1"
-                      >
-                        <span className="text-xs text-gray-200 font-mono">{filename}</span>
-                        <Button
-                          onClick={() => handleFileDelete(filename)}
-                          disabled={deleteFileMutation.isPending}
-                          size="sm"
-                          variant="ghost"
-                          className="h-6 w-6 p-0 text-red-400 hover:text-red-300 hover:bg-red-900/20"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
 
-              {(uploadFileMutation.isSuccess || deleteFileMutation.isSuccess) && (
-                <p className="text-xs text-green-400">✓ Operación completada. Las secciones se han actualizado.</p>
-              )}
-              {(uploadFileMutation.isError || deleteFileMutation.isError) && (
-                <p className="text-xs text-red-400">✗ Error al procesar el archivo.</p>
-              )}
-            </div>
-          )}
-          
           {/* Pomodoro Settings */}
           <div>
             <Label className="block text-sm font-medium mb-2 text-gray-300">
@@ -406,13 +511,13 @@ export function SettingsModal() {
                 onChange={(e) => setFormData(prev => ({ ...prev, groqApiKey: e.target.value }))}
                 className="flex-1 bg-gray-800 border-gray-700 text-gray-200 placeholder-gray-500"
               />
-              <Button
-                onClick={handleTestApi}
-                disabled={!formData.groqApiKey.trim() || testApiMutation.isPending}
-                className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-sm"
-              >
-                {testApiMutation.isPending ? 'Testing...' : 'Test'}
-              </Button>
+             <Button
+                  onClick={handleTestApi}
+                  disabled={!formData.groqApiKey?.trim() || testApiMutation.isPending}
+                  className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-sm"
+                  >
+                  Probar API
+            </Button>
             </div>
             <p className="text-xs text-gray-500 mt-1">
               Para obtener respuestas automáticas a tus ejercicios

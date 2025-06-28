@@ -28,7 +28,10 @@ export class MemStorage implements IStorage {
   private settings: Settings | undefined;
   private sessions: Map<number, Session> = new Map();
   private currentId = { exercises: 1, responses: 1, settings: 1, sessions: 1 };
-
+  async clearExercises(): Promise<void> {
+    this.exercises.clear();
+    this.currentId.exercises = 1;
+  }
   constructor() {
     // Initialize default settings
     this.settings = {

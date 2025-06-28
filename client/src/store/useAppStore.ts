@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Exercise, Settings, Response } from '@shared/schema';
-
+import { sortByNumericPrefix } from '@/utils/sort'
 interface TimerState {
   minutes: number;
   seconds: number;
@@ -17,15 +17,21 @@ interface AppState {
   currentExercise: Exercise | null;
   currentResponse: string;
   responses: Record<number, string>; // exerciseId -> response
-  
+  // Mapa exerciseId → posición de cursor dentro del textarea
+  lastCursorPos: Record<number, number>;
+  // Acción para actualizar el mapa completo de posiciones
+  setLastCursorPos: (positions: Record<number, number>) => void;
+  uploadExerciseFiles: (files: File[]) => Promise<void>
+  sectionFiles: string[];
+  setSectionFiles: (files: string[]) => void;
   // Timer
   timer: TimerState;
   timerInterval: number | null;
   studyStartTime: number | null;
-  
+
   // Settings
   settings: Settings | null;
-  
+
   // UI state
   isSettingsOpen: boolean;
   isLoading: boolean;
@@ -35,9 +41,10 @@ interface AppState {
   sectionCountdown: number;
   showRestBreak: boolean;
   restBreakMinutes: number;
-  
+
   // Actions
   setExercises: (exercises: Exercise[]) => void;
+  loadExercises: () => Promise<void>;               // ← NUEVO método
   setCurrentSection: (sectionId: number) => void;
   setCurrentExercise: (index: number) => void;
   setCurrentResponse: (response: string) => void;
@@ -45,28 +52,30 @@ interface AppState {
   loadResponse: (exerciseId: number) => string;
   nextExercise: () => void;
   previousExercise: () => void;
-  
+
   // Timer actions
   startTimer: () => void;
   pauseTimer: () => void;
   resetTimer: (minutes?: number) => void;
   updateTimer: () => void;
-  
+
+   decrementTimer: () => void;
   // Settings actions
   setSettings: (settings: Settings) => void;
   updateSettings: (updates: Partial<Settings>) => void;
   toggleSettings: () => void;
-  
+
   // Auto-save
   setAutoSaveStatus: (status: 'saved' | 'saving' | 'error') => void;
-  
+
   // Feedback and section transition
   setShowFeedbackDialog: (show: boolean) => void;
   startSectionTransition: () => void;
   cancelSectionTransition: () => void;
-  
+
   // Rest break
   setShowRestBreak: (show: boolean) => void;
+  
 }
 
 export const useAppStore = create<AppState>()(
@@ -79,7 +88,13 @@ export const useAppStore = create<AppState>()(
       currentExercise: null,
       currentResponse: '',
       responses: {},
-      
+      // Inicialmente no hay posiciones de cursor guardadas:
+      lastCursorPos: {},
+
+      // Setter: reemplaza el mapa completo
+      setLastCursorPos: (positions: Record<number, number>) => {
+        set({ lastCursorPos: positions });
+      },
       timer: {
         minutes: 25,
         seconds: 0,
@@ -88,9 +103,9 @@ export const useAppStore = create<AppState>()(
       },
       timerInterval: null,
       studyStartTime: null,
-      
+
       settings: null,
-      
+
       isSettingsOpen: false,
       isLoading: false,
       autoSaveStatus: 'saved',
@@ -99,10 +114,17 @@ export const useAppStore = create<AppState>()(
       sectionCountdown: 5,
       showRestBreak: false,
       restBreakMinutes: 5,
-      
+sectionFiles: [],
+setSectionFiles: (files: string[]) => {
+  const sorted = [...files].sort(sortByNumericPrefix);
+  set({ sectionFiles: sorted });
+},
+
+
+
       // Actions
       setExercises: (exercises) => {
-        set({ exercises });
+      set({ exercises });
         const state = get();
         const currentExercises = exercises.filter(ex => ex.sectionId === state.currentSectionId);
         if (currentExercises.length > 0 && state.currentExerciseIndex < currentExercises.length) {
@@ -127,6 +149,33 @@ export const useAppStore = create<AppState>()(
         });
       },
       
+
+ 
+      uploadExerciseFiles: async (files: File[]) => {
+        for (const file of files) {
+          if (!file.name.endsWith('.js')) continue;
+          const content = await file.text();
+          const res = await fetch('/api/sections/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: file.name, content }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(`Error subiendo ${file.name}: ${err.error || res.statusText}`);
+          }
+        }
+
+        // 3) Recuperar la lista cruda
+        const filesList: string[] = await fetch('/api/sections/files')
+          .then(r => r.json());
+
+        // 4) Guardarla ordenada en el store
+        get().setSectionFiles(filesList);
+      },
+
+
+
       setCurrentExercise: (index) => {
         const state = get();
         const sectionExercises = state.exercises.filter(ex => ex.sectionId === state.currentSectionId);
@@ -203,118 +252,140 @@ export const useAppStore = create<AppState>()(
           });
         }
       },
-      
+
+
+
       // Timer actions
-      startTimer: () => {
-        const state = get();
-        if (state.timerInterval) return; // Already running
+startTimer: () => {
+  const state = get();
+  if (state.timerInterval) return; // Ya está corriendo
+  
+  const timerMinutes = state.settings?.pomodoroMinutes || 25;
+  set({
+    timer: {
+      minutes: timerMinutes,
+      seconds: 0,
+      isRunning: true,
+      isPomodoro: true,
+    },
+    studyStartTime: Date.now()
+  });
+  
+  const intervalId = window.setInterval(() => {
+    get().updateTimer();
+  }, 1000);
+  
+  set({ timerInterval: intervalId });
+},
+
+pauseTimer: () => {
+  const state = get();
+  if (state.timerInterval) {
+    clearInterval(state.timerInterval);
+    set({ timerInterval: null });
+  }
+  set(state => ({
+    timer: { ...state.timer, isRunning: false }
+  }));
+
+
+},
+
+resetTimer: (minutes) => {
+  const state = get();
+  // 1. Limpio cualquier intervalo anterior
+  if (state.timerInterval) {
+    clearInterval(state.timerInterval);
+    set({ timerInterval: null });
+  }
+
+  // 2. Calculo los minutos iniciales
+  const timerMinutes = minutes ?? state.settings?.pomodoroMinutes ?? 25;
+
+  // 3. Reinicio el timer en marcha
+  set({
+    timer: {
+      minutes: timerMinutes,
+      seconds: 0,
+      isRunning: true,
+      isPomodoro: true,
+    }
+  });
+
+  // 4. **Arranco** un nuevo intervalo de decremento
+  const id = window.setInterval(() => {
+    get().decrementTimer();
+  }, 1000);
+  set({ timerInterval: id });
+},
+
+
+updateTimer: () => {
+  set(state => {
+    if (!state.timer.isRunning) return state;
+    
+    if (state.timer.seconds === 0) {
+      if (state.timer.minutes === 0) {
+        // Timer terminó: calculamos tiempo de descanso
+        const studyTime = state.studyStartTime
+          ? (Date.now() - state.studyStartTime) / 60000
+          : 25;
+        const restMinutes = Math.ceil(studyTime / 5);
         
-        const timerMinutes = state.settings?.pomodoroMinutes || 25;
-        set({
-          timer: {
-            minutes: timerMinutes,
-            seconds: 0,
-            isRunning: true,
-            isPomodoro: true,
-          },
-          studyStartTime: Date.now()
-        });
-        
-        const intervalId = window.setInterval(() => {
-          get().updateTimer();
-        }, 1000);
-        
-        set({ timerInterval: intervalId });
-      },
-      
-      pauseTimer: () => {
-        const state = get();
+        // Limpiamos intervalo
         if (state.timerInterval) {
           clearInterval(state.timerInterval);
-          set({ timerInterval: null });
         }
-        set(state => ({
-          timer: { ...state.timer, isRunning: false }
-        }));
-      },
-      
-      resetTimer: (minutes) => {
-        const state = get();
-        if (state.timerInterval) {
-          clearInterval(state.timerInterval);
-          set({ timerInterval: null });
+        
+        return {
+          ...state,
+          timer: { ...state.timer, isRunning: false },
+          timerInterval: null,
+          showRestBreak: true,
+          restBreakMinutes: restMinutes
+        };
+      }
+      return {
+        ...state,
+        timer: {
+          ...state.timer,
+          minutes: state.timer.minutes - 1,
+          seconds: 59,
         }
-        const timerMinutes = minutes || state.settings?.pomodoroMinutes || 25;
-        set({
-          timer: {
-            minutes: timerMinutes,
-            seconds: 0,
-            isRunning: false,
-            isPomodoro: true,
-          }
-        });
-      },
-      
-      updateTimer: () => {
-        set(state => {
-          if (!state.timer.isRunning) return state;
-          
-          if (state.timer.seconds === 0) {
-            if (state.timer.minutes === 0) {
-              // Timer finished - calculate rest break time
-              const studyTime = state.studyStartTime ? (Date.now() - state.studyStartTime) / 60000 : 25;
-              const restMinutes = Math.ceil(studyTime / 5); // minutos estudiados / 5
-              
-              // Clear timer interval
-              if (state.timerInterval) {
-                clearInterval(state.timerInterval);
-              }
-              
-              return {
-                ...state,
-                timer: { ...state.timer, isRunning: false },
-                timerInterval: null,
-                showRestBreak: true,
-                restBreakMinutes: restMinutes
-              };
-            }
-            return {
-              ...state,
-              timer: {
-                ...state.timer,
-                minutes: state.timer.minutes - 1,
-                seconds: 59,
-              }
-            };
-          } else {
-            return {
-              ...state,
-              timer: {
-                ...state.timer,
-                seconds: state.timer.seconds - 1,
-              }
-            };
-          }
-        });
-      },
-      
-      // Settings actions
-      setSettings: (settings) => {
-        set({ settings });
-        if (settings.pomodoroMinutes) {
-          const state = get();
-          if (state.timer.isPomodoro) {
-            set({
-              timer: {
-                ...state.timer,
-                minutes: settings.pomodoroMinutes,
-                seconds: 0,
-              }
-            });
-          }
+      };
+    } else {
+      return {
+        ...state,
+        timer: {
+          ...state.timer,
+          seconds: state.timer.seconds - 1,
         }
-      },
-      
+      };
+    }
+  });
+},
+  decrementTimer: () => {
+    const state = get(); 
+    state.updateTimer();
+  },  
+
+// Settings actions
+setSettings: (settings) => {
+  set({ settings });
+  if (settings.pomodoroMinutes) {
+    const state = get();
+    if (state.timer.isPomodoro) {
+      set({
+        timer: {
+          ...state.timer,
+          minutes: settings.pomodoroMinutes,
+          seconds: 0,
+        }
+      });
+    }
+  }
+},
+
       updateSettings: (updates) => {
         set(state => ({
           settings: state.settings ? { ...state.settings, ...updates } : null
@@ -405,7 +476,6 @@ export const useAppStore = create<AppState>()(
           }
         }, 1000);
       },
-      
       cancelSectionTransition: () => {
         set({ 
           showSectionTransition: false,
@@ -426,6 +496,7 @@ export const useAppStore = create<AppState>()(
         responses: state.responses,
         settings: state.settings,
         timer: state.timer,
+        lastCursorPos: state.lastCursorPos,
       }),
     }
   )

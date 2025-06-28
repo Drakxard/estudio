@@ -19,21 +19,23 @@ interface SectionDomain {
   difficulty: 'basico' | 'intermedio' | 'avanzado';
   prerequisites: number[];
 }
-
 export async function loadExercisesFromFiles(): Promise<void> {
   try {
+    // 0) ¡Muy importante! vaciamos todo lo anterior para no duplicar
+    await storage.clearExercises();
+
     const allRawExercises: RawExercise[] = [];
     
-    // Load from existing attached assets
-    await loadFromAttachedAssets(allRawExercises);
+    // 1) Load from existing attached assets
+   // await loadFromAttachedAssets(allRawExercises);
     
-    // Load from sube-seccion folder (dynamic uploads)
+    // 2) Load from sube-seccion folder (dynamic uploads)
     await loadFromSubeSeccion(allRawExercises);
     
-    // Process and organize exercises
+    // 3) Process and organize exercises
     const processedExercises = processExercises(allRawExercises);
     
-    // Store in memory
+    // 4) Store in memory
     await storage.createExercises(processedExercises);
     
     const maxSection = Math.max(...processedExercises.map(ex => ex.sectionId));
@@ -45,23 +47,6 @@ export async function loadExercisesFromFiles(): Promise<void> {
   }
 }
 
-async function loadFromAttachedAssets(allRawExercises: RawExercise[]): Promise<void> {
-  try {
-    // Load from corrected secciones file
-    const seccionesModule = await import("../../attached_assets/secciones_fixed.js");
-    const seccionesData = seccionesModule.ejercicios as RawExercise[];
-    allRawExercises.push(...seccionesData);
-    
-    // Load from seccion parcial
-    const parcialModule = await import("../../attached_assets/seccion parcial_1750696591836.js");
-    const parcialData = parcialModule.ejercicios as RawExercise[];
-    allRawExercises.push(...parcialData);
-    
-    console.log(`Loaded ${seccionesData.length + parcialData.length} exercises from attached assets`);
-  } catch (error) {
-    console.error("Error loading from attached assets:", error);
-  }
-}
 
 async function loadFromSubeSeccion(allRawExercises: RawExercise[]): Promise<void> {
   try {
