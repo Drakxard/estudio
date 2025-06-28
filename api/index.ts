@@ -13,11 +13,11 @@ app.use((req: Request, _res, next: NextFunction) => {
 
 let registerRoutes: (app: typeof express) => Promise<void>;
 try {
-  console.log("[API] Importando rutas desde ../server/routes.ts");
+  console.log("[API] Importando rutas desde ../server/routes");
   // Asegúrate de la ruta: si tu carpeta server/routes tiene index.ts, esto carga index
-  registerRoutes = (await import("../server/routes.ts")).registerRoutes;
+  registerRoutes = (await import("../server/routes")).registerRoutes;
 } catch (err: any) {
-  console.error("[API] Falló al importar ../server/routes.ts:", err);
+  console.error("[API] Falló al importar ../server/routes:", err);
   throw err;  // aborta el despliegue mostrando la traza completa
 }
 
