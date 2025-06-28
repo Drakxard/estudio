@@ -7,35 +7,9 @@
   "author": "Drakxard <drakxard@gmail.com>",
    "main": "electron-main.js",
   "scripts": {
-    "dev:server":     "cross-env NODE_ENV=development tsx server/index.ts",
-    "dev:renderer":   "vite --port 3000",
-    "electron-dev":   "concurrently -k -n SERVER,UI,APP -c cyan,magenta,yellow \"npm run dev:server\" \"npm run dev:renderer\" \"wait-on http://localhost:3000 && electron .\"",
-    "electron":       "electron .",
-
-    "build:server":   "cross-env NODE_ENV=production tsx server/index.ts --out-dir server/public --esm",
-    "build:renderer": "vite build --config vite.config.ts",
-    "build:electron": "npm run build:renderer && npm run build:server",
-    "build": "npm run build:renderer && npm run build:server",
-    "electron-pack":  "npm run build:electron && electron-builder",
-    "dist":           "npm run electron-pack -- --publish=never",
-
-    "start":          "node dist/server/index.js",
-
-    "kill-port":      "npx kill-port 3000",
-    "kill-all-ports": "npx kill-port 3000 3001 3002 3003",
-    "force-clean":    "taskkill /f /im node.exe /im electron.exe 2>nul || echo No processes to kill",
-    "super-clean":    "npm run force-clean && npm run kill-all-ports",
-    "clean-start":    "npm run super-clean && npm run dev:server",
-    "clean-electron": "npm run super-clean && npm run electron-dev",
-
-    "chunk":           "python scripts/chunk_and_embed.py",
-    "embed-single":    "python scripts/embed_single.py",
-    "benchmark":       "node scripts/benchmark.js",
-    "reset-all-data":  "node scripts/reset-all-data.js",
-    "reset-plan-data": "node scripts/reset-plan-data.js",
-    "reset-quiz-data": "node scripts/reset-quiz-data.js",
-    "reset-student-data":"node scripts/reset-student-data.js",
-    "setup-groq":      "node scripts/setup-groq.js"
+  "build:renderer": "vite build --config vite.config.ts",
+  "build:server":   "cross-env NODE_ENV=production esbuild server/index.ts --bundle --platform=node --target=node16 --format=esm --outdir=dist/server --external:*.css --external:*.png --external:@shared/* --external:lightningcss --external:*.node",
+  "build":          "npm run build:renderer && npm run build:server"
   },
    "build": {
     "appId": "com.drakxard.mora_vejercicios",
@@ -43,17 +17,19 @@
     "directories": {
       "output": "dist-electron",
       "buildResources": "assets"
-    },
+    },"asar": true,
+    "asarUnpack": [
+      "preload.js"
+    ],
    "files": [
       "electron-main.js",
       "preload.js",
-      "dist/server/**/*",
+      "dist/**/*",
       "server/public/**/*",
       "assets/**/*",
       "certs/**/*",
       "package.json"
     ],
-    "asar": true,
     "win": {
       "target": "nsis",
       "icon": "assets/icon.ico",

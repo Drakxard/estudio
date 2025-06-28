@@ -8,12 +8,12 @@
 /sube-seccion/
 
 # Salidas de Electron
-/electron/
 /electron/dist/
 /electron/build/
 /electron-final/
 /dist-electron/
 /release/
+/electron/
 
 # Archivos de entorno
 .env
